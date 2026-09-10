@@ -1,0 +1,110 @@
+{
+  "url": "https://ganmino.github.io/tetris-blitz/",
+  "mode": "desktop",
+  "state": "active-play",
+  "requestedState": "active-play",
+  "appliedState": "active-play",
+  "runId": "live-check",
+  "seed": null,
+  "screenshotPath": "artifacts/canvas-inspection/live/desktop-active-play.png",
+  "gpu": {
+    "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)",
+    "vendor": "Google Inc. (Apple)",
+    "softwareRendered": false
+  },
+  "result": {
+    "ok": true,
+    "reason": "nonblank",
+    "rect": {
+      "x": 0,
+      "y": 0,
+      "width": 1280,
+      "height": 720
+    },
+    "drawingBuffer": {
+      "width": 1280,
+      "height": 720
+    },
+    "alphaPixels": 4096,
+    "variance": 255,
+    "colorBuckets": 244,
+    "metrics": {
+      "colorBuckets": 367,
+      "colorEntropyBits": 5.14,
+      "edgeDensity": 0.199,
+      "luminance": {
+        "mean": 34.8,
+        "p5": 1.7,
+        "p95": 130.5,
+        "contrast": 128.8
+      },
+      "dominantColorShare": 0.25,
+      "nonBackgroundShare": 0.75
+    },
+    "renderBudget": {
+      "tier": "desktop",
+      "note": "starting-point budget; adjust per game and document overrides",
+      "rows": [
+        {
+          "metric": "calls",
+          "actual": 36,
+          "limit": 300,
+          "ok": true
+        },
+        {
+          "metric": "triangles",
+          "actual": 46024,
+          "limit": 750000,
+          "ok": true
+        },
+        {
+          "metric": "geometries",
+          "actual": 15,
+          "limit": 300,
+          "ok": true
+        },
+        {
+          "metric": "textures",
+          "actual": 14,
+          "limit": 60,
+          "ok": true
+        }
+      ],
+      "withinBudget": true
+    },
+    "diagnostics": {
+      "frame": 167,
+      "phase": "playing",
+      "elapsed": 45,
+      "timeLeft": 75,
+      "score": 1240,
+      "level": 2,
+      "lines": 6,
+      "combo": 0,
+      "stackTop": 14,
+      "active": {
+        "type": "T",
+        "x": 4,
+        "y": 10,
+        "rotation": 1
+      },
+      "powerup": null,
+      "best": 0,
+      "renderer": {
+        "calls": 36,
+        "triangles": 46024,
+        "geometries": 15,
+        "textures": 14
+      },
+      "canvas": {
+        "clientWidth": 1280,
+        "clientHeight": 720,
+        "width": 1280,
+        "height": 720,
+        "dpr": 1
+      }
+    }
+  },
+  "consoleErrors": [],
+  "pageErrors": []
+}
