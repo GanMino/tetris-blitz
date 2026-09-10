@@ -28,3 +28,11 @@
 ## 交付物
 - 仓库：https://github.com/GanMino/tetris-blitz （main = 63bd59d）
 - 在线：https://ganmino.github.io/tetris-blitz/
+
+## V3（Boss 战 + 强化牌）已完成
+- [x] Boss 状态机 + 3D 实体 + 血条 + 蓄力预警 + 死亡爆炸；三阶段难度递增
+- [x] 垃圾行/洗牌/狂怒攻击（Board.addGarbageRows/shuffleBottomRows，灰色垃圾块渲染）
+- [x] 9 种强化牌（Upgrades.ts）+ 选择界面（模拟暂停、1/2/3 键）
+- [x] 胜利结算；测试全流程（击杀→选牌→胜利）通过；pass-5 检查 11 对零错误
+- [x] 线上部署验证（boss/upgrade 状态，43/30 calls，零错误）
+- 提交：674f4d1（Git Data API，github.com 主站间歇性断连）

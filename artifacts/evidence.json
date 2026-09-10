@@ -1,21 +1,65 @@
 {
   "version": 1,
-  "runId": "pass-4",
+  "runId": "pass-5",
   "captures": [
-    { "mode": "desktop", "state": "menu", "report": "artifacts/canvas-inspection/pass-4/desktop-menu.json" },
-    { "mode": "desktop", "state": "active-play", "report": "artifacts/canvas-inspection/pass-4/desktop-active-play.json" },
-    { "mode": "desktop", "state": "powerup", "report": "artifacts/canvas-inspection/pass-4/desktop-powerup.json" },
-    { "mode": "desktop", "state": "danger", "report": "artifacts/canvas-inspection/pass-4/desktop-danger.json" },
-    { "mode": "desktop", "state": "gold", "report": "artifacts/canvas-inspection/pass-4/desktop-gold.json" },
-    { "mode": "desktop", "state": "gameover-time", "report": "artifacts/canvas-inspection/pass-4/desktop-gameover-time.json" },
-    { "mode": "desktop", "state": "paused", "report": "artifacts/canvas-inspection/pass-4/desktop-paused.json" },
-    { "mode": "mobile", "state": "active-play", "report": "artifacts/canvas-inspection/pass-4/mobile-active-play.json" },
-    { "mode": "mobile", "state": "powerup", "report": "artifacts/canvas-inspection/pass-4/mobile-powerup.json" },
-    { "mode": "mobile", "state": "danger", "report": "artifacts/canvas-inspection/pass-4/mobile-danger.json" },
-    { "mode": "mobile", "state": "gold", "report": "artifacts/canvas-inspection/pass-4/mobile-gold.json" }
+    {
+      "mode": "desktop",
+      "state": "menu",
+      "report": "artifacts/canvas-inspection/pass-5/desktop-menu.json"
+    },
+    {
+      "mode": "desktop",
+      "state": "active-play",
+      "report": "artifacts/canvas-inspection/pass-5/desktop-active-play.json"
+    },
+    {
+      "mode": "desktop",
+      "state": "powerup",
+      "report": "artifacts/canvas-inspection/pass-5/desktop-powerup.json"
+    },
+    {
+      "mode": "desktop",
+      "state": "boss",
+      "report": "artifacts/canvas-inspection/pass-5/desktop-boss.json"
+    },
+    {
+      "mode": "desktop",
+      "state": "upgrade",
+      "report": "artifacts/canvas-inspection/pass-5/desktop-upgrade.json"
+    },
+    {
+      "mode": "desktop",
+      "state": "victory",
+      "report": "artifacts/canvas-inspection/pass-5/desktop-victory.json"
+    },
+    {
+      "mode": "desktop",
+      "state": "gold",
+      "report": "artifacts/canvas-inspection/pass-5/desktop-gold.json"
+    },
+    {
+      "mode": "desktop",
+      "state": "gameover-time",
+      "report": "artifacts/canvas-inspection/pass-5/desktop-gameover-time.json"
+    },
+    {
+      "mode": "mobile",
+      "state": "active-play",
+      "report": "artifacts/canvas-inspection/pass-5/mobile-active-play.json"
+    },
+    {
+      "mode": "mobile",
+      "state": "boss",
+      "report": "artifacts/canvas-inspection/pass-5/mobile-boss.json"
+    },
+    {
+      "mode": "mobile",
+      "state": "upgrade",
+      "report": "artifacts/canvas-inspection/pass-5/mobile-upgrade.json"
+    }
   ],
   "artifacts": [
-    "artifacts/canvas-inspection/live-v2/desktop-active-play.json",
-    "artifacts/canvas-inspection/live-v2/mobile-powerup.json"
+    "artifacts/canvas-inspection/live-v3/desktop-boss.json",
+    "artifacts/canvas-inspection/live-v3/mobile-upgrade.json"
   ]
 }

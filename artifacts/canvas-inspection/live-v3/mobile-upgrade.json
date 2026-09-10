@@ -1,0 +1,117 @@
+{
+  "url": "https://ganmino.github.io/tetris-blitz/",
+  "mode": "mobile",
+  "state": "upgrade",
+  "requestedState": "upgrade",
+  "appliedState": "upgrade",
+  "runId": "live-v3",
+  "seed": null,
+  "screenshotPath": "artifacts/canvas-inspection/live-v3/mobile-upgrade.png",
+  "gpu": {
+    "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)",
+    "vendor": "Google Inc. (Apple)",
+    "softwareRendered": false
+  },
+  "result": {
+    "ok": true,
+    "reason": "nonblank",
+    "rect": {
+      "x": 0,
+      "y": 0,
+      "width": 390,
+      "height": 664
+    },
+    "drawingBuffer": {
+      "width": 780,
+      "height": 1328
+    },
+    "alphaPixels": 4097,
+    "variance": 254,
+    "colorBuckets": 164,
+    "metrics": {
+      "colorBuckets": 250,
+      "colorEntropyBits": 3.49,
+      "edgeDensity": 0.182,
+      "luminance": {
+        "mean": 21.3,
+        "p5": 5.4,
+        "p95": 60.5,
+        "contrast": 55
+      },
+      "dominantColorShare": 0.457,
+      "nonBackgroundShare": 0.543
+    },
+    "renderBudget": {
+      "tier": "mobile",
+      "note": "starting-point budget; adjust per game and document overrides",
+      "rows": [
+        {
+          "metric": "calls",
+          "actual": 30,
+          "limit": 150,
+          "ok": true
+        },
+        {
+          "metric": "triangles",
+          "actual": 76548,
+          "limit": 300000,
+          "ok": true
+        },
+        {
+          "metric": "geometries",
+          "actual": 13,
+          "limit": 200,
+          "ok": true
+        },
+        {
+          "metric": "textures",
+          "actual": 13,
+          "limit": 40,
+          "ok": true
+        }
+      ],
+      "withinBudget": true
+    },
+    "diagnostics": {
+      "frame": 234,
+      "phase": "playing",
+      "elapsed": 130,
+      "timeLeft": 95,
+      "score": 4120,
+      "level": 3,
+      "lines": 22,
+      "combo": 0,
+      "bank": [],
+      "goldRow": -1,
+      "occupied": 122,
+      "stage": 2,
+      "bossHp": null,
+      "bossMaxHp": null,
+      "upgradeActive": true,
+      "stackTop": 8,
+      "active": {
+        "type": "Z",
+        "x": 3,
+        "y": 0,
+        "rotation": 0
+      },
+      "powerup": null,
+      "best": 0,
+      "renderer": {
+        "calls": 30,
+        "triangles": 76548,
+        "geometries": 13,
+        "textures": 13
+      },
+      "canvas": {
+        "clientWidth": 390,
+        "clientHeight": 664,
+        "width": 780,
+        "height": 1328,
+        "dpr": 2
+      }
+    }
+  },
+  "consoleErrors": [],
+  "pageErrors": []
+}
