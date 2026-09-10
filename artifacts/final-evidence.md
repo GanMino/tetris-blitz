@@ -1,68 +1,59 @@
-# TETRIS BLITZ — 最终证据
+# TETRIS BLITZ — 最终证据（V2）
 
-**结论：可玩、可验证、可在桌面与手机运行。** 本地地址 http://127.0.0.1:5188 （`npm run dev`）；生产构建 `npm run build` + `npm run preview`（http://127.0.0.1:4188）。
+**结论：V2 升级完成，可玩、可验证、线上运行。** 本地 http://127.0.0.1:5188；线上 https://ganmino.github.io/tetris-blitz/。
 
-## 游戏内容
+## V2 变更
 
-- **限时俄罗斯方块**：10×22 棋盘（顶部 2 行隐藏），120 秒倒计时；每消 1 行 +4 秒；时间耗尽 → TIME UP。
-- **方块道具**（5 种，随机附在方块某格上，方块落定即触发，发光宝石徽记+图标提示）：
-  - ⏱ TIME+8（加 8 秒）· 🐢 SLOW（12 秒减速）· 💣 BOMB（清底部 2 行）· ⭐ 2X（12 秒双倍分）· 💰 BONUS（+300 分）
-  - 出现率 18%，60 秒后升至 26%；每块至多 1 个。
-- **难度曲线**：等级随耗时每 30 秒一档（重力 0.9s→0.35s/格）；连消倍率 ×1→×3。
-- **移动端**：触控按钮（◀ ▶ ▼ ⟳ ↺ ⏬），safe-area 适配，44px+ 触控目标；竖屏自动适配相机。
-- **任天堂/卡普空街机风**：高饱和宝石质感方块（倒角+光泽贴图）、深色街机机柜、霓虹灯带、侧翼面板与顶部招牌（横屏显示）、消行爆发粒子、震屏、红脉冲危险警示、8-bit 合成音效 + chiptune 循环背景乐（可静音，localStorage 记忆）。
+### 画面（网络开源素材 + 程序化增强）
+- 背景：程序化多层星云（星云云团 + 420 星点 + 中央辉光）
+- 音效/BGM：Kenney CC0 采样（13 个 SFX + 8-bit jingle 循环，ogg+mp3 双格式，Safari 兼容；加载失败自动降级 Web Audio 合成）
+- 粒子：Kenney CC0 贴图精灵（spark/smoke/star/glow/flare）替代方块粒子
+- 字体：Press Start 2P（SIL OFL）应用于 HUD 数字/标题/横幅
+- 许可证随仓库分发：public/licenses/（KENNEY-LICENSE.txt、OFL-PressStart2P.txt）
 
-## 操作
+### 道具差异化
+5 种道具各有专属 3D 造型（八面体/圆环/尖刺二十面体/五角星/圆角方块）、emoji 图标、专属触发特效（时钟扩散环/绿烟波/橙色冲击波/金色星雨/粉色星爆）。
 
-键盘：←/→ 移动 · ↑/Z 顺时针 · X 逆时针 · ↓ 软降 · 空格 硬降 · P 暂停 · M 静音 · Enter 开始 · R 重开。
-触屏：左下 ◀ ▼ ▶，右下 ↺ ⟳ ⏬；顶部 ⏸ 暂停、♪ 静音。
+### 新玩法
+- **道具银行**：3 格，落定收集、1/2/3 键或点按触发；满时新道具自动生效。
+- **黄金目标行**：20s 首次出现（随机行 8–16），消中 +10s & +500×等级分，18s 后刷新。
+- **连锁消行**：BOMB 重设计为底部中心 3×3 爆破 + 逐列重力，坠落的方块凑出满行自动连环消除（连消倍率、每行 +2s）。单元验证：12 满行场景一次爆破连锁清除 9 行。
 
 ## 验证证据
 
-### 画布检查（inspector，pass-3 + 生产构建）
-声明 9 个视口/状态对，全部通过（非空白、无页面/控制台错误、渲染预算内）。`artifacts/evidence.json` 经 director 的 check_evidence.py 校验通过（11 项确认）。
-
-| 视口 | 状态 | draw calls | 预算 | 对比度 | 色彩熵 |
+### 画布检查（pass-4，声明 11 视口/状态对，check_evidence.py 13 项通过）
+| 视口 | 状态 | draw calls | 预算 | 色彩熵 | 错误 |
 | --- | --- | --- | --- | --- | --- |
-| 桌面 1280×720 | menu | 21 | 300 ✓ | — | 3.50 |
-| 桌面 | active-play | 36 | 300 ✓ | 128.8 | 5.13 |
-| 桌面 | powerup（道具块） | 38 | 300 ✓ | — | 5.32 |
-| 桌面 | danger（堆顶+红计时） | 36 | 300 ✓ | — | 5.70 |
-| 桌面 | gameover-time | 28 | 300 ✓ | — | 3.85 |
-| 桌面 | paused | 36 | 300 ✓ | — | 3.65 |
-| 移动 iPhone 13 | active-play | 30 | 150 ✓ | 164.4 | 5.51 |
-| 移动 | danger | 30 | 150 ✓ | 174.2 | 6.26 |
-| 移动 | gameover-time | 22 | 150 ✓ | 77.2 | 4.11 |
+| 桌面 | menu | 21 | 300 ✓ | 2.96 | 0 |
+| 桌面 | active-play | 36 | 300 ✓ | 3.89 | 0 |
+| 桌面 | powerup（银行+徽记） | 39 | 300 ✓ | 4.14 | 0 |
+| 桌面 | danger | 36 | 300 ✓ | 4.59 | 0 |
+| 桌面 | gold（黄金行） | 37 | 300 ✓ | 3.93 | 0 |
+| 桌面 | gameover-time | 28 | 300 ✓ | 2.74 | 0 |
+| 桌面 | paused | 36 | 300 ✓ | 2.63 | 0 |
+| 移动 | active-play | 30 | 150 ✓ | 4.01 | 0 |
+| 移动 | powerup | 33 | 150 ✓ | 4.56 | 0 |
+| 移动 | danger | 30 | 150 ✓ | 4.90 | 0 |
+| 移动 | gold | 31 | 150 ✓ | 4.05 | 0 |
 
-截图与 JSON 报告：`artifacts/canvas-inspection/pass-3/`（桌面+移动）。生产构建（dist，gzip 154 KB）预览检查：`artifacts/canvas-inspection/prod/`（36 calls，零错误）。
+### 机器人试玩（bot-playtest.spec.ts）
+- 4 行消除 834 分 ✓；道具银行触发（Digit1 → BOMB：占用格数减少、银行 ['bomb','double']→['double']）✓；TIME UP ✓；重开 ✓；0 页面/控制台错误。
 
-### 机器人试玩（tests/bot-playtest.spec.ts，桌面 Chrome）
-- 井式剧本：旋转 I 块 → 移到 1 格竖井 → 硬降 → **4 行消除**（分数 0→834，lines=4）。
-- 时间归零 → TIME UP 结算面板出现（文案"时间到！"）。
-- 点"再来一局" → 分数归零、计时器恢复，正常进入新局。
-- 全程 0 页面错误 / 0 控制台错误；软锁窗口 1（≤2 阈值）。
+### 视觉回归
+桌面键盘 + 移动触控真实输入移动活动块，双端通过。
 
-### 视觉回归（tests/visual.spec.ts，桌面 + 移动）
-- 真实输入移动活动块：桌面键盘 ←、移动端触控 ◀ 均使 activeX 减小（断言通过）。
-- 画布非空白像素校验通过；双视口截图见 test-results 附件。
+### 线上部署（GitHub Actions → Pages）
+- 线上画布检查：desktop active-play 36 calls / mobile powerup 33 calls，零错误。
+- 素材 URL 全部 200：bgm.ogg、PressStart2P-Regular.ttf、particle_star.png、KENNEY-LICENSE.txt。
 
-### 一次性路径验证（诊断脚本，未入库）
-- **堆满结束**：连续硬降 7 块 → spawn 受阻 → gameover（stackTop=2，路径正确）。
-- **道具触发**：seed 4 出生块带 BONUS → 硬降 → 分数 +308（300 奖励 + 8 落距分），徽记消耗、无错误。
-
-### 测试命令
+## 命令
 ```bash
-npm run dev            # http://127.0.0.1:5188
-npm test               # playwright（visual + bot，3 通过 1 跳过）
-npm run inspect:canvas # 或直接调 scripts/inspect-threejs-canvas.mjs
+npm run dev            # 本地
+npm test               # 3 通过 1 跳过
 npm run build && npm run preview
+node scripts/inspect-threejs-canvas.mjs --url http://127.0.0.1:5188 --state gold --run-id pass-4
 ```
 
 ## 已知限制
-- 移动端横屏可用但棋盘较小（竖屏为第一目标）。
-- 无在线对战/联机；无外部生成素材（全程序化，符合"街机风"路线，未调用 3D/图像/音频生成服务）。
-- WebKit 移动端的音频由用户手势解锁；headless 环境无声（预期行为）。
-
-## 设计文档
-- 设计简报/核心循环/难度计划：`artifacts/design-brief.md`
-- 进度与决策记录：`artifacts/game-progress.md`
+- 移动端横屏可用但棋盘较小（竖屏为第一目标）；无对战/联机。
+- 菜单/结算遮罩仍略微压暗背景（熵 2.63–2.96，接近 3.0 参考线，属有意的可读性取舍）。
