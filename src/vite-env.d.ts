@@ -9,6 +9,9 @@ interface ThreeGameDiagnostics {
   level: number;
   lines: number;
   combo: number;
+  bank: string[];
+  goldRow: number;
+  occupied: number;
   stackTop: number;
   active: { type: string; x: number; y: number; rotation: number } | null;
   powerup: string | null;

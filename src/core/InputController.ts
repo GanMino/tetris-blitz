@@ -5,6 +5,9 @@ export type InputIntent =
   | 'rotate-cw'
   | 'rotate-ccw'
   | 'hard-drop'
+  | 'trigger-0'
+  | 'trigger-1'
+  | 'trigger-2'
   | 'pause'
   | 'mute'
   | 'start'
@@ -20,6 +23,9 @@ const KEY_MAP: Record<string, InputIntent> = {
   KeyZ: 'rotate-cw',
   KeyX: 'rotate-ccw',
   Space: 'hard-drop',
+  Digit1: 'trigger-0',
+  Digit2: 'trigger-1',
+  Digit3: 'trigger-2',
   KeyP: 'pause',
   Escape: 'pause',
   KeyM: 'mute',

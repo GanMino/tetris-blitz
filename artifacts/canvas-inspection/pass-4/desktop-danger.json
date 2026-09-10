@@ -1,0 +1,113 @@
+{
+  "url": "http://127.0.0.1:5188",
+  "mode": "desktop",
+  "state": "danger",
+  "requestedState": "danger",
+  "appliedState": "danger",
+  "runId": "pass-4",
+  "seed": null,
+  "screenshotPath": "artifacts/canvas-inspection/pass-4/desktop-danger.png",
+  "gpu": {
+    "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)",
+    "vendor": "Google Inc. (Apple)",
+    "softwareRendered": false
+  },
+  "result": {
+    "ok": true,
+    "reason": "nonblank",
+    "rect": {
+      "x": 0,
+      "y": 0,
+      "width": 1280,
+      "height": 720
+    },
+    "drawingBuffer": {
+      "width": 1280,
+      "height": 720
+    },
+    "alphaPixels": 4096,
+    "variance": 255,
+    "colorBuckets": 278,
+    "metrics": {
+      "colorBuckets": 440,
+      "colorEntropyBits": 4.59,
+      "edgeDensity": 0.215,
+      "luminance": {
+        "mean": 26.9,
+        "p5": 3.1,
+        "p95": 158.4,
+        "contrast": 155.4
+      },
+      "dominantColorShare": 0.212,
+      "nonBackgroundShare": 0.788
+    },
+    "renderBudget": {
+      "tier": "desktop",
+      "note": "starting-point budget; adjust per game and document overrides",
+      "rows": [
+        {
+          "metric": "calls",
+          "actual": 36,
+          "limit": 300,
+          "ok": true
+        },
+        {
+          "metric": "triangles",
+          "actual": 81892,
+          "limit": 750000,
+          "ok": true
+        },
+        {
+          "metric": "geometries",
+          "actual": 15,
+          "limit": 300,
+          "ok": true
+        },
+        {
+          "metric": "textures",
+          "actual": 14,
+          "limit": 60,
+          "ok": true
+        }
+      ],
+      "withinBudget": true
+    },
+    "diagnostics": {
+      "frame": 156,
+      "phase": "playing",
+      "elapsed": 95,
+      "timeLeft": 8,
+      "score": 2260,
+      "level": 4,
+      "lines": 14,
+      "combo": 0,
+      "bank": [],
+      "goldRow": -1,
+      "occupied": 131,
+      "stackTop": 7,
+      "active": {
+        "type": "S",
+        "x": 2,
+        "y": 5,
+        "rotation": 0
+      },
+      "powerup": null,
+      "best": 0,
+      "renderer": {
+        "calls": 36,
+        "triangles": 81892,
+        "geometries": 15,
+        "textures": 14
+      },
+      "canvas": {
+        "clientWidth": 1280,
+        "clientHeight": 720,
+        "width": 1280,
+        "height": 720,
+        "dpr": 1
+      }
+    }
+  },
+  "consoleErrors": [],
+  "pageErrors": []
+}

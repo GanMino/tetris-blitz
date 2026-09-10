@@ -13,6 +13,7 @@ import {
   POWERUPS,
   TETROMINO_COLORS,
   TUNING,
+  type PowerUpKind,
 } from './constants';
 import { BagRandomizer, pieceCells, ROTATIONS, type ActivePiece, type TetrominoType } from './Pieces';
 import { rollPowerUp } from './PowerUps';
@@ -57,6 +58,9 @@ export class Game {
   private best = Number(localStorage.getItem(BEST_KEY) ?? 0) || 0;
   private newBest = false;
   private lastTickSecond = -1;
+  private bank: PowerUpKind[] = [];
+  private goldRow = -1;
+  private goldTimer: number = TUNING.gold.firstAtSeconds;
 
   private pausedForScreenshot = false;
   private reducedMotion = false;
@@ -83,6 +87,7 @@ export class Game {
       onMenu: () => this.toMenu(),
       onPauseToggle: () => this.togglePause(),
       onMute: () => this.toggleMute(),
+      onTriggerBank: (index) => this.triggerBank(index),
     });
 
     this.boardView = new BoardView(this.scene);
@@ -152,6 +157,7 @@ export class Game {
     this.board.tickFlash(delta);
     this.updateLevel();
     this.updateCountdownTick();
+    this.updateGoldRow(delta);
     this.stepGravity(delta);
     this.processIntents(delta);
     if (this.phase !== 'playing') {
@@ -222,6 +228,15 @@ export class Game {
           break;
         case 'hard-drop':
           if (playing) this.hardDrop();
+          break;
+        case 'trigger-0':
+          if (playing) this.triggerBank(0);
+          break;
+        case 'trigger-1':
+          if (playing) this.triggerBank(1);
+          break;
+        case 'trigger-2':
+          if (playing) this.triggerBank(2);
           break;
         case 'pause':
           this.togglePause();
@@ -307,45 +322,19 @@ export class Game {
     const result = this.board.lock(piece, badge);
     this.audio.lock();
 
-    // Power-up effects.
+    // Power-up collection → bank (full bank auto-fires the new pickup).
     if (badge && badgeWorldCell) {
       const kind = badge.kind;
-      this.audio.powerUp();
       this.boardView.spawnBadgeGem(badgeWorldCell[0], badgeWorldCell[1], kind);
-      this.boardView.burst(badgeWorldCell[0], badgeWorldCell[1], POWERUPS[kind].color as string, 20, 2.6);
-      this.boardView.addShake(0.1);
-      switch (kind) {
-        case 'time':
-          this.timeLeft += TUNING.time.powerupTimeBonus;
-          this.hud.banner(`时间 +${TUNING.time.powerupTimeBonus}s`, 'powerup');
-          break;
-        case 'slow':
-          this.slowUntil = this.elapsed + TUNING.powerups.slowDuration;
-          this.hud.banner(`减速 ${TUNING.powerups.slowDuration}s`, 'powerup');
-          break;
-        case 'bomb':
-          this.hud.banner('爆破清底！', 'powerup');
-          break;
-        case 'double':
-          this.doubleUntil = this.elapsed + TUNING.powerups.doubleDuration;
-          this.hud.banner(`双倍得分 ${TUNING.powerups.doubleDuration}s`, 'powerup');
-          break;
-        case 'bonus':
-          this.score += TUNING.powerups.bonusPoints;
-          this.hud.banner(`+${TUNING.powerups.bonusPoints}`, 'powerup');
-          break;
+      this.boardView.burst(badgeWorldCell[0], badgeWorldCell[1], POWERUPS[kind].color, 16, 2.2, 'spark');
+      if (this.bank.length >= TUNING.bank.size) {
+        this.applyPowerUp(kind);
+      } else {
+        this.bank.push(kind);
+        this.audio.powerUp();
+        this.hud.banner(`获得道具：${POWERUPS[kind].name}（存入银行）`, 'powerup');
+        this.hud.setBank(this.bank);
       }
-    }
-
-    // Bomb row FX.
-    if (result.bombedRows.length > 0) {
-      this.boardView.flashRows(result.bombedRows);
-      for (const row of result.bombedRows) {
-        for (let col = 0; col < BOARD_WIDTH; col += 1) {
-          this.boardView.burst(col, row, POWERUPS.bomb.color as string, 3, 1.6);
-        }
-      }
-      this.boardView.addShake(0.28);
     }
 
     // Scored line clears.
@@ -354,27 +343,133 @@ export class Game {
       this.combo += 1;
       this.lines += n;
       this.timeLeft += TUNING.time.secondsPerLine * n;
-      const comboIndex = Math.min(this.combo - 1, TUNING.scoring.comboSteps.length - 1);
-      const doubleActive = this.elapsed < this.doubleUntil;
-      const gained = Math.round(
-        TUNING.scoring.lineScores[n] * this.level * TUNING.scoring.comboSteps[comboIndex] * (doubleActive ? 2 : 1),
-      );
+      const gained = this.lineScore(n);
       this.score += gained;
       this.boardView.flashRows(result.clearedRows);
       for (const row of result.clearedRows) {
         const colors = rowColors.get(row) ?? [];
         for (let col = 0; col < BOARD_WIDTH; col += 1) {
-          this.boardView.burst(col, row, colors[col] ?? '#ffffff', 4, 2.4);
+          this.boardView.burst(col, row, colors[col] ?? '#ffffff', 4, 2.4, 'spark');
         }
       }
       this.boardView.addShake(0.14 + n * 0.06);
       this.audio.lineClear(this.combo);
       if (n >= 2) this.hud.banner(`${CLEAR_BANNERS[n]}  +${gained}`, 'score');
+      this.checkGoldRow(result.clearedRows);
     } else {
       this.combo = 0;
     }
 
+    // Cascade chains.
+    this.scoreCascades(result.cascadedRows, result.cascadedColors);
+
     this.spawnPiece();
+  }
+
+  /** Score + FX for gravity-cascade waves (from line clears or the bomb). */
+  private scoreCascades(cascades: number[][], colors: string[][]): void {
+    for (let wave = 0; wave < cascades.length; wave += 1) {
+      const rows = cascades[wave];
+      const waveColors = colors[wave] ?? [];
+      this.combo += 1;
+      this.lines += rows.length;
+      this.timeLeft += TUNING.cascade.secondsPerRow * rows.length;
+      const gained = this.lineScore(rows.length);
+      this.score += gained;
+      this.boardView.flashRows(rows);
+      for (let i = 0; i < rows.length; i += 1) {
+        const row = rows[i];
+        for (let col = 0; col < BOARD_WIDTH; col += 1) {
+          this.boardView.burst(col, row, waveColors[i * BOARD_WIDTH + col] ?? '#ffffff', 3, 2.8, 'star');
+        }
+      }
+      this.boardView.addShake(0.1 + wave * 0.05);
+      this.audio.lineClear(this.combo);
+      this.hud.banner(`连锁 x${wave + 1}！  +${gained}`, 'gold');
+      this.checkGoldRow(rows);
+    }
+  }
+
+  /** Score for clearing n lines at the current combo/level/effects. */
+  private lineScore(n: number): number {
+    const comboIndex = Math.min(this.combo - 1, TUNING.scoring.comboSteps.length - 1);
+    const doubleActive = this.elapsed < this.doubleUntil;
+    return Math.round(
+      TUNING.scoring.lineScores[n] * this.level * TUNING.scoring.comboSteps[comboIndex] * (doubleActive ? 2 : 1),
+    );
+  }
+
+  /** Apply a power-up effect (bank trigger or auto-fire). */
+  private applyPowerUp(kind: PowerUpKind): void {
+    const def = POWERUPS[kind];
+    this.audio.powerUp();
+    this.boardView.powerUpVfx(kind);
+    switch (kind) {
+      case 'time':
+        this.timeLeft += TUNING.time.powerupTimeBonus;
+        this.hud.banner(`${def.emoji} 时间 +${TUNING.time.powerupTimeBonus}s`, 'powerup');
+        break;
+      case 'slow':
+        this.slowUntil = this.elapsed + TUNING.powerups.slowDuration;
+        this.hud.banner(`${def.emoji} 减速 ${TUNING.powerups.slowDuration}s`, 'powerup');
+        break;
+      case 'bomb': {
+        const result = this.board.bombClear();
+        for (const [col, row] of result.blasted) {
+          this.boardView.burst(col, row, def.color, 3, 1.8, 'smoke');
+        }
+        this.boardView.flashRows([...new Set(result.blasted.map(([, row]) => row))], def.color);
+        this.boardView.addShake(0.3);
+        this.scoreCascades(result.cascades, result.cascadeColors);
+        this.hud.banner(`${def.emoji} 3×3 爆破！`, 'powerup');
+        break;
+      }
+      case 'double':
+        this.doubleUntil = this.elapsed + TUNING.powerups.doubleDuration;
+        this.hud.banner(`${def.emoji} 双倍得分 ${TUNING.powerups.doubleDuration}s`, 'powerup');
+        break;
+      case 'bonus':
+        this.score += TUNING.powerups.bonusPoints;
+        this.hud.banner(`${def.emoji} +${TUNING.powerups.bonusPoints}`, 'powerup');
+        break;
+    }
+  }
+
+  private triggerBank(index: number): void {
+    const kind = this.bank[index];
+    if (!kind) return;
+    this.bank.splice(index, 1);
+    this.applyPowerUp(kind);
+    this.hud.setBank(this.bank);
+    this.hud.bankPop(index);
+  }
+
+  // ------------------------------------------------------------ gold row
+
+  private updateGoldRow(delta: number): void {
+    if (this.goldRow >= 0) return;
+    this.goldTimer -= delta;
+    if (this.goldTimer <= 0) {
+      const span = TUNING.gold.rowMax - TUNING.gold.rowMin;
+      this.goldRow = TUNING.gold.rowMin + Math.floor(this.rng() * (span + 1));
+      this.audio.gold();
+      this.hud.banner('金色目标行出现！', 'gold');
+    }
+  }
+
+  private checkGoldRow(clearedRows: number[]): void {
+    if (this.goldRow >= 0 && clearedRows.includes(this.goldRow)) this.resolveGoldRow(true);
+  }
+
+  private resolveGoldRow(rewarded: boolean): void {
+    if (rewarded) {
+      this.timeLeft += TUNING.gold.bonusSeconds;
+      this.score += TUNING.gold.bonusPoints * this.level;
+      this.boardView.goldBurst(this.goldRow);
+      this.hud.banner(`黄金行！ +${TUNING.gold.bonusSeconds}s +${TUNING.gold.bonusPoints * this.level}分`, 'gold');
+    }
+    this.goldRow = -1;
+    this.goldTimer = TUNING.gold.nextAfterSeconds;
   }
 
   private spawnPiece(): void {
@@ -394,6 +489,7 @@ export class Game {
 
   private syncScene(): void {
     this.boardView.syncBoard(this.board);
+    this.boardView.setGoldRow(this.goldRow);
     if (this.active) {
       const cells = pieceCells(this.active);
       this.boardView.syncActive(cells, this.active.type, this.activePower?.kind ?? null, this.activePower?.cellIndex ?? 0);
@@ -459,6 +555,10 @@ export class Game {
     this.gravityTimer = 0;
     this.newBest = false;
     this.lastTickSecond = -1;
+    this.bank = [];
+    this.goldRow = -1;
+    this.goldTimer = TUNING.gold.firstAtSeconds;
+    this.hud.setBank(this.bank);
     this.active = null;
     this.activePower = null;
     this.nextPiece = { type: this.bag.next(), rotation: 0 };
@@ -485,8 +585,10 @@ export class Game {
     this.audio.stopMusic();
     this.audio.gameOver();
     this.clearDangerSignals();
+    this.goldRow = -1;
     this.hud.setPhase('gameover', reason);
     this.hud.update(this.metrics());
+    this.boardView.setGoldRow(-1);
     this.boardView.syncActive([], 'I', null, 0);
     this.boardView.syncGhost(null);
     this.boardView.hideBadge();
@@ -518,8 +620,12 @@ export class Game {
     this.audio.stopMusic();
     this.audio.ui();
     this.clearDangerSignals();
+    this.bank = [];
+    this.goldRow = -1;
+    this.hud.setBank(this.bank);
     this.board.reset();
     this.boardView.syncBoard(this.board);
+    this.boardView.setGoldRow(-1);
     this.boardView.syncActive([], 'I', null, 0);
     this.boardView.syncGhost(null);
     this.boardView.hideBadge();
@@ -566,6 +672,7 @@ export class Game {
           'gameover-time',
           'gameover-stack',
           'paused',
+          'gold',
           'bot-well',
           'time-low',
         ]);
@@ -591,6 +698,8 @@ export class Game {
             this.score = 840;
             this.lines = 4;
             this.level = 2;
+            this.bank = ['bomb', 'double'];
+            this.hud.setBank(this.bank);
             this.buildPresetStack(10);
             this.forceActivePiece('J', 3, 7, 1);
             this.activePower = { kind: 'time', cellIndex: 2 };
@@ -623,6 +732,17 @@ export class Game {
             this.forceActivePiece('O', 3, 6, 0);
             this.phase = 'paused';
             this.hud.setPhase('paused');
+            break;
+          case 'gold':
+            this.startGame();
+            this.elapsed = 50;
+            this.timeLeft = 70;
+            this.score = 1560;
+            this.lines = 9;
+            this.level = 2;
+            this.buildPresetStack(14);
+            this.forceActivePiece('L', 3, 11, 1);
+            this.goldRow = 12;
             break;
           case 'bot-well':
             this.startGame();
@@ -707,6 +827,9 @@ export class Game {
       level: this.level,
       lines: this.lines,
       combo: this.combo,
+      bank: [...this.bank],
+      goldRow: this.goldRow,
+      occupied: this.board.occupiedCount(),
       stackTop: this.board.stackTopVisible(),
       active: this.active
         ? { type: this.active.type, x: this.active.x, y: this.active.y, rotation: this.active.rotationIndex }

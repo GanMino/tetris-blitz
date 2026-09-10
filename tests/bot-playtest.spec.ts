@@ -13,6 +13,7 @@ type Snapshot = {
   lines: number;
   timeLeft: number;
   activeX: number;
+  stackTop: number;
 };
 
 test('bot playtest: input drives locks, line clears, time-up and retry', async ({ page }, testInfo) => {
@@ -42,6 +43,7 @@ test('bot playtest: input drives locks, line clears, time-up and retry', async (
         lines: d?.lines ?? 0,
         timeLeft: d?.timeLeft ?? 0,
         activeX: d?.active?.x ?? 0,
+        stackTop: d?.stackTop ?? -1,
       };
     });
 
@@ -90,6 +92,24 @@ test('bot playtest: input drives locks, line clears, time-up and retry', async (
   const afterSecond = await step(() => tap('Space', 90));
   expect(afterSecond.score).toBeGreaterThan(afterDrop.score);
 
+  // --- Phase 1b: power bank trigger (slot 1 = BOMB blasts 3×3 bottom-center).
+  await page.evaluate(async () => {
+    const hooks = window.__THREE_GAME_TEST_HOOKS__;
+    await hooks?.setState('powerup');
+  });
+  const bankBefore = await page.evaluate(() => {
+    const d = window.__THREE_GAME_DIAGNOSTICS__;
+    return { bank: d?.bank ?? [], occupied: d?.occupied ?? 0 };
+  });
+  expect(bankBefore.bank).toEqual(['bomb', 'double']);
+  await tap('Digit1');
+  const bankAfter = await page.evaluate(() => {
+    const d = window.__THREE_GAME_DIAGNOSTICS__;
+    return { bank: d?.bank ?? [], occupied: d?.occupied ?? 0 };
+  });
+  expect(bankAfter.occupied).toBeLessThan(bankBefore.occupied);
+  expect(bankAfter.bank).toEqual(['double']);
+
   // --- Phase 2: the time limit ends the run.
   await page.evaluate(async () => {
     const hooks = window.__THREE_GAME_TEST_HOOKS__;
@@ -113,6 +133,10 @@ test('bot playtest: input drives locks, line clears, time-up and retry', async (
       scoreBefore: start.score,
       scoreAfterDrop: afterDrop.score,
       scoreAfterSecond: afterSecond.score,
+      bankTrigger: {
+        before: bankBefore,
+        after: bankAfter,
+      },
     },
     phase2: { timeUpOverlayShown: true },
     phase3: { retryRestarted: true },

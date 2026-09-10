@@ -9,6 +9,15 @@
     <meta name="theme-color" content="#05060f" />
     <link rel="icon" href="data:," />
     <title>TETRIS BLITZ · 限时道具方块</title>
+    <style>
+      /* Press Start 2P (SIL OFL 1.1, bundled in public/fonts). Relative URL
+         resolves against the page, so it works on dev and GitHub Pages. */
+      @font-face {
+        font-family: "Press Start 2P";
+        src: url("fonts/PressStart2P-Regular.ttf") format("truetype");
+        font-display: swap;
+      }
+    </style>
   </head>
   <body>
     <main id="app">
@@ -34,6 +43,7 @@
             <strong id="lines-value">0</strong>
           </div>
         </div>
+        <div id="bank-slots" class="hud-cluster" aria-label="道具银行"></div>
         <div class="hud-cluster hud-right">
           <div class="hud-metric">
             <span class="hud-label">BEST</span>

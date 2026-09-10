@@ -1,4 +1,4 @@
-import { BOARD_HEIGHT, BOARD_WIDTH, TETROMINO_COLORS, TUNING, type PowerUpKind, type TetrominoType } from './constants';
+import { BOARD_HEIGHT, BOARD_WIDTH, TETROMINO_COLORS, type PowerUpKind, type TetrominoType } from './constants';
 import type { PowerUpPick } from './PowerUps';
 import type { ActivePiece } from './Pieces';
 import { pieceCells } from './Pieces';
@@ -13,8 +13,12 @@ export interface BoardCell {
 
 export interface LockResult {
   clearedRows: number[];
-  /** Board rows (full row indices) removed by BOMB — excluded from scoring. */
+  /** Rows removed by a lock-time BOMB (legacy; bank-triggered bombs use bombClear). */
   bombedRows: number[];
+  /** Cascade waves: rows completed by the collapse after the first clear. */
+  cascadedRows: number[][];
+  /** Flat color snapshots per cascade wave cell, for burst coloring. */
+  cascadedColors: string[][];
   triggeredPowerUps: PowerUpKind[];
   /** True when this lock cleared at least one scored line. */
   clearedLines: boolean;
@@ -100,21 +104,7 @@ export class Board {
       if (cell) cell.badge = badge.kind;
     }
 
-    // BOMB: remove the bottom N occupied rows of the stack (not scored).
-    const bombedRows: number[] = [];
-    if (triggeredPowerUps.includes('bomb')) {
-      let removed = 0;
-      for (let row = BOARD_HEIGHT - 1; row >= 0 && removed < TUNING.powerups.bombRows; row -= 1) {
-        if (this.cells[row]?.some((c) => c.type !== null)) {
-          bombedRows.push(row);
-          this.clearRow(row);
-          removed += 1;
-        }
-      }
-      this.collapse();
-    }
-
-    // Scored line clears.
+    // Scored line clears, then gravity cascade chains.
     const clearedRows: number[] = [];
     for (let row = 0; row < BOARD_HEIGHT; row += 1) {
       const line = this.cells[row];
@@ -125,12 +115,93 @@ export class Board {
       this.collapse();
     }
 
+    // Cascade: rows completed by the collapse clear automatically, wave after wave.
+    const cascadedRows: number[][] = [];
+    const cascadedColors: string[][] = [];
+    let safety = 0;
+    while (safety < 6) {
+      const rows = this.fullRows();
+      if (rows.length === 0) break;
+      cascadedColors.push(rows.flatMap((row) => this.cellTypes(row)));
+      for (const row of rows) this.clearRow(row);
+      this.collapse();
+      cascadedRows.push(rows);
+      safety += 1;
+    }
+
     return {
       clearedRows,
-      bombedRows,
+      bombedRows: [],
+      cascadedRows,
+      cascadedColors,
       triggeredPowerUps,
       clearedLines: clearedRows.length > 0,
     };
+  }
+
+  /**
+   * BOMB power-up (bank-triggered): blast a 3×3 region at the bottom-center
+   * (cols 3-5, rows 19-21), then apply per-column gravity — cells fall into
+   * the holes and can complete new rows (gravity cascade chains).
+   */
+  bombClear(): { blasted: [number, number][]; cascades: number[][]; cascadeColors: string[][] } {
+    const blasted: [number, number][] = [];
+    for (let row = BOARD_HEIGHT - 3; row < BOARD_HEIGHT; row += 1) {
+      for (let col = 3; col <= 5; col += 1) {
+        const cell = this.cells[row][col];
+        if (cell && cell.type !== null) {
+          blasted.push([col, row]);
+          cell.type = null;
+          cell.badge = null;
+          cell.flash = 0;
+        }
+      }
+    }
+    this.applyColumnGravity();
+
+    const cascades: number[][] = [];
+    const cascadeColors: string[][] = [];
+    let safety = 0;
+    while (safety < 6) {
+      const rows = this.fullRows();
+      if (rows.length === 0) break;
+      cascadeColors.push(rows.flatMap((row) => this.cellTypes(row)));
+      for (const row of rows) this.clearRow(row);
+      this.applyColumnGravity();
+      cascades.push(rows);
+      safety += 1;
+    }
+    return { blasted, cascades, cascadeColors };
+  }
+
+  /** Per-column gravity: cells fall straight down into gaps below them. */
+  private applyColumnGravity(): void {
+    for (let col = 0; col < BOARD_WIDTH; col += 1) {
+      let write = BOARD_HEIGHT - 1;
+      for (let row = BOARD_HEIGHT - 1; row >= 0; row -= 1) {
+        const cell = this.cells[row][col];
+        if (cell.type === null && cell.badge === null) continue;
+        if (write !== row) {
+          const dst = this.cells[write][col];
+          dst.type = cell.type;
+          dst.badge = cell.badge;
+          dst.flash = cell.flash;
+          cell.type = null;
+          cell.badge = null;
+          cell.flash = 0;
+        }
+        write -= 1;
+      }
+    }
+  }
+
+  /** Total occupied cells (diagnostics / bomb observability). */
+  occupiedCount(): number {
+    let count = 0;
+    for (const line of this.cells) {
+      for (const cell of line) if (cell.type !== null) count += 1;
+    }
+    return count;
   }
 
   /** Decay flash values every frame tick (called by Game). */

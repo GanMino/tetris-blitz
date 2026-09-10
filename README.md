@@ -2,7 +2,7 @@
 
 🕹 **[在线试玩](https://ganmino.github.io/tetris-blitz/)**（GitHub Pages，支持手机）
 
-120 秒倒计时 + 方块随机道具的街机风俄罗斯方块。每一块落下的方块都可能藏着翻盘道具——时间耗尽前能刷多少分？
+120 秒倒计时 + 方块随机道具 + 道具银行 + 黄金目标行 + 连锁消行的街机风俄罗斯方块。
 
 ![游戏截图](artifacts/canvas-inspection/pass-3/desktop-active-play.png)
 
@@ -13,16 +13,19 @@
 ## 玩法
 
 - ⏱ **限时冲刺**：初始 120 秒；每消 1 行 +4 秒；时间归零 → TIME UP。
-- 💎 **方块道具**：约 18% 的方块带有道具（60 秒后升至 26%），道具附在方块某一格上，**方块落定即触发**：
+- 💎 **方块道具**：约 18% 的方块带道具（60 秒后升至 26%），道具附在方块某一格上，**落定后收进道具银行**，随时手动触发（键盘 1/2/3 或点按槽位）：
 
   | 徽记 | 道具 | 效果 |
   | --- | --- | --- |
-  | 🟦 +8s | 时间 +8s | 立即增加 8 秒 |
-  | 🟩 SLOW | 减速 | 12 秒内下落速度大幅降低 |
-  | 🟧 BOOM | 爆破清底 | 立即清除堆叠最底部 2 行 |
-  | 🟨 x2 | 双倍得分 | 12 秒内得分 ×2 |
-  | 🩷 +300 | 加分 | 立即 +300 分 |
+  | ⏱ | 时间 +8s | 立即增加 8 秒 |
+  | 🐢 | 减速 | 12 秒内下落速度大幅降低 |
+  | 💥 | 3×3 爆破 | 炸掉堆叠底部中心 3×3 区域，上方方块坠落，可引发连锁 |
+  | ⭐ | 双倍得分 | 12 秒内得分 ×2 |
+  | 💰 | 加分 | 立即 +300 分 |
 
+- 🏦 **道具银行**：3 格容量，道具落定收集、按键触发——存 BOMB 应急、攒 2X 打爆发；银行满时新道具立即自动生效。
+- 🥇 **黄金目标行**：开局 20 秒出现金色目标行；消中该行 +10 秒 & +500×等级分，之后每 18 秒刷新新目标。
+- 🔗 **连锁消行**：BOMB 爆破后的逐列重力会让上方方块坠入空洞，凑出的满行自动连环消除（连消倍率递增、每行 +2 秒）。
 - 📈 **难度曲线**：等级随耗时每 30 秒一档（LV1→LV4，下落 0.9s/格 → 0.35s/格）。
 - 🔥 **连消 COMBO**：连续消行倍率 ×1 → ×1.5 → ×2 → ×2.5 → ×3，断连重置。
 - 💀 **两种失败**：时间耗尽（TIME UP）或方块堆到顶（TOPPED OUT），结算画面会告诉你原因。
@@ -35,6 +38,7 @@
 | 旋转（顺/逆） | ↑ / Z 与 X | ⟳ / ↺ |
 | 软降 | ↓ | ▼ |
 | 硬降 | 空格 | ⏬ |
+| 触发道具（银行 1/2/3） | 1 / 2 / 3 | 点按槽位 |
 | 暂停 | P / Esc | ⏸ |
 | 静音 | M | ♪ |
 | 开始 / 重开 | Enter / R | 按钮 |
@@ -51,19 +55,23 @@ npm run dev        # http://127.0.0.1:5188
 ## 测试与验证
 
 ```bash
-npm test                 # Playwright：视觉回归（桌面+移动）+ 机器人试玩（4 行消除剧本）
+npm test                 # Playwright：视觉回归（桌面+移动）+ 机器人试玩（4 行消除 / 道具银行 / 时间到 / 重开）
 npm run inspect:canvas   # 画布检查器（像素指标 + 渲染预算 + 状态钩子截图）
 npm run build            # 生产构建（输出 dist/）
 npm run preview          # http://127.0.0.1:4188 预览构建产物
 ```
 
-QA 证据（画布指标、状态截图、机器人报告）：`artifacts/final-evidence.md`、`artifacts/canvas-inspection/pass-3/`。
+QA 证据（画布指标、状态截图、机器人报告）：`artifacts/final-evidence.md`、`artifacts/canvas-inspection/`。
 
-## 技术栈
+## 技术栈与素材
 
 - **Three.js** + **TypeScript** + **Vite**（脚手架来自 [majidmanzarpour/threejs-game-skills](https://github.com/majidmanzarpour/threejs-game-skills)）
-- 全程序化美术：宝石质感方块（倒角 + 光泽贴图）、街机机柜、霓虹灯带、侧翼面板、消行粒子爆发、震屏 —— 零外部素材
-- **Web Audio** 合成 8-bit 音效 + chiptune 循环背景乐（无音频文件），静音偏好持久化
+- 程序化美术：宝石质感方块、街机机柜、程序化多层星云背景、逐格道具徽记（八面体/圆环/尖刺/五角星/方块 + emoji 图标）、粒子爆发（贴图精灵）、震屏
+- **开源素材**（CC0/OFL，许可证随仓库分发，见 `public/licenses/`）：
+  - 音效与 BGM：[Kenney](https://kenney.nl/)（CC0）Interface/Impact Sounds、8-Bit Music Jingles（ogg + mp3 双格式）
+  - 粒子贴图：[Kenney](https://kenney.nl/) Particle Pack（CC0）
+  - 街机字体：[Press Start 2P](https://fonts.google.com/specimen/Press+Start+2P)（SIL OFL 1.1）
+  - 音频失败时自动降级为 Web Audio 合成音效
 - 静态堆叠按颜色 `InstancedMesh` 渲染（约 30 draw calls）；`lil-gui` 支持 `?debug` 实时调参
 - 测试钩子：`window.__THREE_GAME_TEST_HOOKS__`（seed / setState / 暂停截图）+ `__THREE_GAME_DIAGNOSTICS__`
 
@@ -72,9 +80,10 @@ QA 证据（画布指标、状态截图、机器人报告）：`artifacts/final-
 ```
 src/
   core/     Loop · Renderer · InputController（键盘+触控统一意图，DAS 自动重复）
-  game/     Game（状态机/计分/道具效果）· Board（网格/消行/压缩）· Pieces（7-bag）·
-            PowerUps · BoardView（3D 场景）· constants（全部可调参数）
-  systems/  Hud（DOM UI）· AudioSystem（合成音频）· DebugTools（lil-gui）
+  game/     Game（状态机/计分/道具银行/黄金行/连锁）· Board（网格/消行/逐列重力）·
+            Pieces（7-bag）· PowerUps · BoardView（3D 场景/徽记/VFX）· constants
+  systems/  Hud（DOM UI/银行槽）· AudioSystem（采样音效+BGM，合成降级）· DebugTools
+public/     开源素材：audio/（Kenney 音效+BGM）· textures/（Kenney 粒子）· fonts/ · licenses/
 tests/      Playwright 视觉回归 + 机器人试玩
 scripts/    画布检查器（inspect-threejs-canvas.mjs）
 artifacts/  设计简报 · 最终证据 · 检查截图

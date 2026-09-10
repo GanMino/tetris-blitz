@@ -42,6 +42,20 @@ export const TUNING = {
     bonusPoints: 300,
     bombRows: 2,
   },
+  bank: {
+    size: 3, // power-up bank slots; full bank auto-fires new pickups
+  },
+  gold: {
+    firstAtSeconds: 20, // first target row appears after this
+    nextAfterSeconds: 18, // delay until the next target after one is resolved
+    rowMin: 8,
+    rowMax: 16,
+    bonusSeconds: 10,
+    bonusPoints: 500,
+  },
+  cascade: {
+    secondsPerRow: 2, // extra time per cascaded row
+  },
   scoring: {
     lineScores: [0, 100, 300, 500, 800], // index = lines cleared in one lock
     comboSteps: [1, 1.5, 2, 2.5, 3], // combo 1..5, capped at last
@@ -79,20 +93,25 @@ export const POWERUP_COLORS = {
 
 export type PowerUpKind = keyof typeof POWERUP_COLORS;
 
+/** 3D badge shape per power-up (distinct silhouettes). */
+export type PowerUpShape = 'octahedron' | 'torus' | 'spike' | 'star' | 'cube';
+
 export interface PowerUpDef {
   kind: PowerUpKind;
   label: string; // short glyph rendered on the badge texture
   name: string; // full name for banners
   color: string;
   duration: number | null; // null = instant
+  emoji: string; // icon shown on the badge sprite and bank slots
+  shape: PowerUpShape;
 }
 
 export const POWERUPS: Record<PowerUpKind, PowerUpDef> = {
-  time: { kind: 'time', label: '+8s', name: '时间 +8s', color: POWERUP_COLORS.time, duration: null },
-  slow: { kind: 'slow', label: 'SLOW', name: '减速', color: POWERUP_COLORS.slow, duration: TUNING.powerups.slowDuration },
-  bomb: { kind: 'bomb', label: 'BOOM', name: '爆破清底', color: POWERUP_COLORS.bomb, duration: null },
-  double: { kind: 'double', label: 'x2', name: '双倍得分', color: POWERUP_COLORS.double, duration: TUNING.powerups.doubleDuration },
-  bonus: { kind: 'bonus', label: '+300', name: '加分', color: POWERUP_COLORS.bonus, duration: null },
+  time: { kind: 'time', label: '+8s', name: '时间 +8s', color: POWERUP_COLORS.time, duration: null, emoji: '⏱', shape: 'octahedron' },
+  slow: { kind: 'slow', label: 'SLOW', name: '减速', color: POWERUP_COLORS.slow, duration: TUNING.powerups.slowDuration, emoji: '🐢', shape: 'torus' },
+  bomb: { kind: 'bomb', label: 'BOOM', name: '3×3 爆破', color: POWERUP_COLORS.bomb, duration: null, emoji: '💥', shape: 'spike' },
+  double: { kind: 'double', label: 'x2', name: '双倍得分', color: POWERUP_COLORS.double, duration: TUNING.powerups.doubleDuration, emoji: '⭐', shape: 'star' },
+  bonus: { kind: 'bonus', label: '+300', name: '加分', color: POWERUP_COLORS.bonus, duration: null, emoji: '💰', shape: 'cube' },
 };
 
 export const POWERUP_KINDS: PowerUpKind[] = ['time', 'slow', 'bomb', 'double', 'bonus'];

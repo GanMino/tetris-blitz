@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import {
   BOARD_HEIGHT,
+  BOARD_TOP_Y,
   BOARD_WIDTH,
   CELL,
   HIDDEN_ROWS,
@@ -22,12 +23,21 @@ const FRAME_T = 0.34; // frame thickness
 const FRAME_DEPTH = 0.7;
 const WELL_BACK_Z = -0.55;
 
+export type ParticleKey = 'spark' | 'smoke' | 'star' | 'glow' | 'flare';
+
 interface BurstParticle {
-  mesh: THREE.Mesh;
+  sprite: THREE.Sprite;
   velocity: THREE.Vector3;
   life: number;
   maxLife: number;
-  spin: THREE.Vector3;
+  spin: number;
+}
+
+interface RingFx {
+  mesh: THREE.Mesh;
+  life: number;
+  maxLife: number;
+  delay: number;
 }
 
 /**
@@ -47,11 +57,17 @@ export class BoardView {
   private readonly activeMeshes: THREE.Mesh[] = [];
   private badgeGem: THREE.Mesh | null = null;
   private badgeGlow: THREE.Sprite | null = null;
+  private badgeEmoji: THREE.Sprite | null = null;
   private badgeCell: [number, number] | null = null;
+  private badgeKind: PowerUpKind | null = null;
   private readonly badgeLight = new THREE.PointLight('#ffffff', 0, 6);
   private readonly particles: BurstParticle[] = [];
+  private readonly rings: RingFx[] = [];
+  private readonly particleTextures = new Map<ParticleKey, THREE.Texture>();
   private readonly gemPool: THREE.Mesh[] = [];
   private readonly gemStates: Array<{ life: number; maxLife: number }> = [];
+  private readonly goldStrip: THREE.Mesh;
+  private goldRowPulse = 0;
   private readonly stars: THREE.Points;
   private readonly starBase: Float32Array;
   private readonly wings = new THREE.Group();
@@ -62,18 +78,61 @@ export class BoardView {
 
   constructor(private readonly scene: THREE.Scene) {
     this.blockGeometry = new RoundedBoxGeometry(CELL * 0.94, CELL * 0.94, CELL * 0.94, 3, 0.14);
+    this.loadParticleTextures();
 
     this.buildLights();
     this.buildBackdrop();
     this.stars = this.buildStars();
     this.starBase = new Float32Array(this.stars.geometry.getAttribute('position').array);
     this.buildFrame();
+    this.goldStrip = this.buildGoldStrip();
     this.buildCabinetWings();
     this.buildMarquee();
     this.buildStaticPool();
     this.buildGhost();
     this.buildActive();
     this.scene.add(this.root);
+  }
+
+  /** Kenney CC0 particle sprites (public/textures), loaded async. */
+  private loadParticleTextures(): void {
+    const keys: ParticleKey[] = ['spark', 'smoke', 'star', 'glow', 'flare'];
+    const loader = new THREE.TextureLoader();
+    for (const key of keys) {
+      loader.load(`textures/particle_${key}.png`, (texture) => {
+        texture.colorSpace = THREE.SRGBColorSpace;
+        this.particleTextures.set(key, texture);
+      });
+    }
+  }
+
+  /** Texture for a particle burst; procedural glow fallback until loaded. */
+  private particleTexture(key: ParticleKey): THREE.Texture {
+    const loaded = this.particleTextures.get(key);
+    if (loaded) return loaded;
+    const fallback = this.glowTexture('#ffffff', 0.85);
+    this.particleFallbacks.push(fallback);
+    return fallback;
+  }
+
+  private readonly particleFallbacks: THREE.CanvasTexture[] = [];
+
+  /** Glowing golden strip marking the target row. */
+  private buildGoldStrip(): THREE.Mesh {
+    const strip = new THREE.Mesh(
+      new THREE.PlaneGeometry(BOARD_W * 0.96, CELL * 0.88),
+      new THREE.MeshBasicMaterial({
+        color: '#ffd23e',
+        transparent: true,
+        opacity: 0.55,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      }),
+    );
+    strip.position.set(0, 0, 0.32);
+    strip.visible = false;
+    this.root.add(strip);
+    return strip;
   }
 
   // ------------------------------------------------------------- scenery
@@ -98,36 +157,9 @@ export class BoardView {
   private buildBackdrop(): void {
     this.scene.background = new THREE.Color(SCENE_COLORS.backgroundBottom);
 
-    // Vertical gradient backdrop plane (arcade glow).
-    const gradient = document.createElement('canvas');
-    gradient.width = 16;
-    gradient.height = 256;
-    const ctx = gradient.getContext('2d');
-    if (ctx) {
-      const fill = ctx.createLinearGradient(0, 0, 0, 256);
-      fill.addColorStop(0, '#1a1f52');
-      fill.addColorStop(0.55, '#12153e');
-      fill.addColorStop(1, '#080a1c');
-      ctx.fillStyle = fill;
-      ctx.fillRect(0, 0, 16, 256);
-      // Soft magenta glow center-bottom (cabinet light spill).
-      const glow = ctx.createRadialGradient(8, 230, 4, 8, 230, 120);
-      glow.addColorStop(0, 'rgba(255,79,154,0.6)');
-      glow.addColorStop(1, 'rgba(255,79,154,0)');
-      ctx.fillStyle = glow;
-      ctx.fillRect(0, 0, 16, 256);
-      // Cyan glow top-center.
-      const glowTop = ctx.createRadialGradient(8, 18, 4, 8, 18, 110);
-      glowTop.addColorStop(0, 'rgba(41,182,246,0.4)');
-      glowTop.addColorStop(1, 'rgba(41,182,246,0)');
-      ctx.fillStyle = glowTop;
-      ctx.fillRect(0, 0, 16, 256);
-    }
-    const backdropTexture = new THREE.CanvasTexture(gradient);
-    backdropTexture.colorSpace = THREE.SRGBColorSpace;
     const backdrop = new THREE.Mesh(
       new THREE.PlaneGeometry(60, 44),
-      new THREE.MeshBasicMaterial({ map: backdropTexture, fog: false, depthWrite: false }),
+      new THREE.MeshBasicMaterial({ map: this.nebulaTexture(), fog: false, depthWrite: false }),
     );
     backdrop.position.set(0, 0, -14);
     this.root.add(backdrop);
@@ -451,7 +483,6 @@ export class BoardView {
     }
     this.root.add(this.activeGroup);
 
-    const gemGeometry = new THREE.OctahedronGeometry(CELL * 0.34, 0);
     const gemMaterial = new THREE.MeshStandardMaterial({
       color: '#ffffff',
       emissive: '#ffffff',
@@ -459,7 +490,7 @@ export class BoardView {
       roughness: 0.15,
       metalness: 0.1,
     });
-    this.badgeGem = new THREE.Mesh(gemGeometry, gemMaterial);
+    this.badgeGem = new THREE.Mesh(new THREE.OctahedronGeometry(CELL * 0.34, 0), gemMaterial);
     this.badgeGem.visible = false;
     this.badgeGem.scale.y = 1.25;
     this.activeGroup.add(this.badgeGem);
@@ -479,6 +510,46 @@ export class BoardView {
     this.badgeGlow.scale.set(1.5, 1.5, 1);
     this.badgeGlow.visible = false;
     this.activeGroup.add(this.badgeGlow);
+
+    // Emoji icon floating in front of the badge cell.
+    this.badgeEmoji = new THREE.Sprite(
+      new THREE.SpriteMaterial({ map: this.emojiTexture('⏱'), transparent: true, depthWrite: false }),
+    );
+    this.badgeEmoji.scale.set(CELL * 0.62, CELL * 0.62, 1);
+    this.badgeEmoji.visible = false;
+    this.activeGroup.add(this.badgeEmoji);
+  }
+
+  /** Distinct 3D silhouette per power-up kind. */
+  private badgeGeometry(kind: PowerUpKind): THREE.BufferGeometry {
+    switch (POWERUPS[kind].shape) {
+      case 'octahedron':
+        return new THREE.OctahedronGeometry(CELL * 0.34, 0);
+      case 'torus':
+        return new THREE.TorusGeometry(CELL * 0.3, CELL * 0.13, 10, 20);
+      case 'spike':
+        return new THREE.IcosahedronGeometry(CELL * 0.34, 1);
+      case 'star': {
+        const shape = new THREE.Shape();
+        const points = 5;
+        const outer = CELL * 0.42;
+        const inner = CELL * 0.19;
+        for (let i = 0; i < points * 2; i += 1) {
+          const radius = i % 2 === 0 ? outer : inner;
+          const angle = (i / (points * 2)) * Math.PI * 2 - Math.PI / 2;
+          const x = Math.cos(angle) * radius;
+          const y = Math.sin(angle) * radius;
+          if (i === 0) shape.moveTo(x, y);
+          else shape.lineTo(x, y);
+        }
+        shape.closePath();
+        const geometry = new THREE.ExtrudeGeometry(shape, { depth: CELL * 0.2, bevelEnabled: true, bevelSize: 0.03, bevelThickness: 0.04 });
+        geometry.center();
+        return geometry;
+      }
+      case 'cube':
+        return new RoundedBoxGeometry(CELL * 0.5, CELL * 0.5, CELL * 0.5, 2, 0.08);
+    }
   }
 
   // ------------------------------------------------------------- textures
@@ -560,6 +631,85 @@ export class BoardView {
     return texture;
   }
 
+  /** Procedural multi-layer nebula backdrop (arcade space cabinet). */
+  private nebulaTexture(): THREE.CanvasTexture {
+    const w = 1024;
+    const h = 512;
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Canvas 2D unavailable.');
+    // Deep space base.
+    const base = ctx.createLinearGradient(0, 0, 0, h);
+    base.addColorStop(0, '#10143c');
+    base.addColorStop(0.45, '#0b0d28');
+    base.addColorStop(1, '#04050f');
+    ctx.fillStyle = base;
+    ctx.fillRect(0, 0, w, h);
+    // Nebula clouds: layered radial glows, screen-blended.
+    ctx.globalCompositeOperation = 'screen';
+    const blobs: Array<[number, number, number, string, number]> = [
+      [180, 130, 210, '#4d1f7a', 0.55],
+      [820, 90, 240, '#123a7a', 0.6],
+      [300, 400, 260, '#7a1f4d', 0.5],
+      [760, 380, 230, '#1f5a7a', 0.5],
+      [520, 240, 200, '#2a2166', 0.6],
+      [80, 280, 130, '#5a2a6a', 0.35],
+      [950, 250, 110, '#2a4a5a', 0.4],
+    ];
+    for (const [x, y, r, color, alpha] of blobs) {
+      const g = ctx.createRadialGradient(x, y, 4, x, y, r);
+      g.addColorStop(0, color);
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = g;
+      ctx.fillRect(x - r, y - r, r * 2, r * 2);
+    }
+    // Central glow behind the cabinet.
+    const center = ctx.createRadialGradient(w / 2, h / 2, 8, w / 2, h / 2, 260);
+    center.addColorStop(0, 'rgba(90,70,180,0.4)');
+    center.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = center;
+    ctx.fillRect(0, 0, w, h);
+    ctx.globalCompositeOperation = 'source-over';
+    // Stars of varying size/brightness.
+    for (let i = 0; i < 420; i += 1) {
+      const x = Math.random() * w;
+      const y = Math.random() * h;
+      const r = Math.random() * 1.4 + 0.3;
+      const alpha = Math.random() * 0.75 + 0.15;
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = Math.random() < 0.12 ? '#9fd8ff' : Math.random() < 0.2 ? '#ffc4e0' : '#ffffff';
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.anisotropy = 4;
+    return texture;
+  }
+
+  /** Emoji icon sprite texture for badge faces / power-up VFX labels. */
+  private emojiTexture(emoji: string): THREE.CanvasTexture {
+    const size = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Canvas 2D unavailable.');
+    ctx.font = '96px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(emoji, size / 2, size / 2 + 6);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    return texture;
+  }
+
   // ------------------------------------------------------------- state sync
 
   /** Rebuild the instanced stack from the board grid. */
@@ -630,17 +780,28 @@ export class BoardView {
       mesh.position.set(cellToWorldX(cell[0]), cellToWorldY(cell[1]), 0.1);
       mesh.scale.setScalar(1);
     }
-    if (badge && this.badgeGem && this.badgeGlow) {
+    if (badge && this.badgeGem && this.badgeGlow && this.badgeEmoji) {
       const [col, row] = cells[badgeIndex];
       this.badgeCell = [col, row];
       this.badgeGem.visible = true;
       this.badgeGem.position.set(cellToWorldX(col), cellToWorldY(row), CELL * 0.72);
+      // Swap to the kind-specific silhouette when the kind changes.
+      if (this.badgeKind !== badge) {
+        this.badgeKind = badge;
+        const old = this.badgeGem.geometry;
+        this.badgeGem.geometry = this.badgeGeometry(badge);
+        old.dispose();
+        this.badgeEmoji.material.map = this.emojiTexture(POWERUPS[badge].emoji);
+        (this.badgeEmoji.material as THREE.SpriteMaterial).needsUpdate = true;
+      }
       const color = new THREE.Color(POWERUPS[badge].color);
       (this.badgeGem.material as THREE.MeshStandardMaterial).color.set(color);
       (this.badgeGem.material as THREE.MeshStandardMaterial).emissive.set(color);
       (this.badgeGlow.material as THREE.SpriteMaterial).color.set(color);
       this.badgeGlow.visible = true;
       this.badgeGlow.position.set(cellToWorldX(col), cellToWorldY(row), CELL * 0.7);
+      this.badgeEmoji.visible = true;
+      this.badgeEmoji.position.set(cellToWorldX(col), cellToWorldY(row), CELL * 1.06);
       this.badgeLight.color.set(color);
       this.badgeLight.intensity = 3.5;
     } else {
@@ -651,15 +812,16 @@ export class BoardView {
   hideBadge(): void {
     if (this.badgeGem) this.badgeGem.visible = false;
     if (this.badgeGlow) this.badgeGlow.visible = false;
+    if (this.badgeEmoji) this.badgeEmoji.visible = false;
     this.badgeCell = null;
     this.badgeLight.intensity = 0;
   }
 
   // ------------------------------------------------------------- effects
 
-  /** Fading gem remnant on a locked badge cell. */
+  /** Fading gem remnant on a locked badge cell (kind-specific silhouette). */
   spawnBadgeGem(col: number, row: number, kind: PowerUpKind): void {
-    const geometry = new THREE.OctahedronGeometry(CELL * 0.3, 0);
+    const geometry = this.badgeGeometry(kind);
     const color = new THREE.Color(POWERUPS[kind].color);
     const material = new THREE.MeshStandardMaterial({
       color,
@@ -676,13 +838,13 @@ export class BoardView {
     this.gemStates.push({ life: 0.7, maxLife: 0.7 });
   }
 
-  /** Flash planes over rows being cleared. */
-  flashRows(rows: number[]): void {
+  /** Flash planes over rows being cleared (optionally tinted). */
+  flashRows(rows: number[], color = '#ffffff'): void {
     for (const row of rows) {
       const plane = new THREE.Mesh(
         new THREE.PlaneGeometry(BOARD_W, CELL),
         new THREE.MeshBasicMaterial({
-          color: '#ffffff',
+          color,
           transparent: true,
           opacity: 0.9,
           blending: THREE.AdditiveBlending,
@@ -697,30 +859,100 @@ export class BoardView {
 
   private readonly flashPool: Array<{ mesh: THREE.Mesh; life: number; maxLife: number }> = [];
 
-  /** Particle burst at a cell (line clear / hard drop / power-up). */
-  burst(col: number, row: number, colorHex: string, count = 26, spread = 2.2): void {
+  /** Sprite-texture particle burst at a cell. */
+  burst(col: number, row: number, colorHex: string, count = 26, spread = 2.2, textureKey: ParticleKey = 'spark'): void {
     const origin = new THREE.Vector3(cellToWorldX(col), cellToWorldY(row), 0.3);
     for (let i = 0; i < count; i += 1) {
-      const size = CELL * (0.06 + Math.random() * 0.12);
-      const geometry = new THREE.BoxGeometry(size, size, size);
-      const color = new THREE.Color(colorHex).lerp(new THREE.Color('#ffffff'), Math.random() * 0.5);
-      const material = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 1 });
-      const mesh = new THREE.Mesh(geometry, material);
-      mesh.position.copy(origin);
-      this.root.add(mesh);
+      const size = CELL * (0.16 + Math.random() * 0.26);
+      const color = new THREE.Color(colorHex).lerp(new THREE.Color('#ffffff'), Math.random() * 0.35);
+      const sprite = new THREE.Sprite(
+        new THREE.SpriteMaterial({
+          map: this.particleTexture(textureKey),
+          color,
+          transparent: true,
+          opacity: 1,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        }),
+      );
+      sprite.position.copy(origin);
+      sprite.scale.set(size, size, 1);
+      this.root.add(sprite);
       const velocity = new THREE.Vector3(
         (Math.random() - 0.5) * spread,
         Math.random() * spread * 1.1 + 0.6,
         (Math.random() - 0.5) * spread * 0.6 + 0.4,
       );
       this.particles.push({
-        mesh,
+        sprite,
         velocity,
         life: 0.5 + Math.random() * 0.35,
         maxLife: 0.85,
-        spin: new THREE.Vector3(Math.random() * 8, Math.random() * 8, Math.random() * 8),
+        spin: Math.random() * 6,
       });
     }
+  }
+
+  /** Power-up trigger VFX, distinct per kind. */
+  powerUpVfx(kind: PowerUpKind): void {
+    const def = POWERUPS[kind];
+    const cx = 0;
+    const cy = BOARD_TOP_Y - CELL * 2;
+    switch (kind) {
+      case 'time':
+        for (let i = 0; i < 3; i += 1) {
+          const ring = new THREE.Mesh(
+            new THREE.TorusGeometry(CELL * (0.8 + i * 0.9), 0.06, 8, 40),
+            new THREE.MeshBasicMaterial({
+              color: def.color,
+              transparent: true,
+              opacity: 0.9,
+              blending: THREE.AdditiveBlending,
+              depthWrite: false,
+            }),
+          );
+          ring.position.set(cx, cy, 0.6);
+          this.root.add(ring);
+          this.rings.push({ mesh: ring, life: 0.6 + i * 0.16, maxLife: 0.9, delay: i * 0.16 });
+        }
+        this.burst(5, 4, def.color, 14, 2, 'glow');
+        break;
+      case 'slow':
+        this.burst(5, 4, def.color, 20, 3, 'smoke');
+        this.burst(4, 3, def.color, 10, 1.6, 'glow');
+        break;
+      case 'bomb':
+        this.burst(5, 4, def.color, 26, 3.4, 'smoke');
+        this.burst(4, 5, '#ffd9a0', 12, 2.4, 'flare');
+        break;
+      case 'double':
+        this.burst(5, 4, def.color, 30, 3.2, 'star');
+        break;
+      case 'bonus':
+        this.burst(5, 4, def.color, 24, 3, 'spark');
+        this.burst(4, 5, '#ffe27a', 12, 2.6, 'star');
+        break;
+    }
+  }
+
+  /** Gold row celebration burst across the row. */
+  goldBurst(row: number): void {
+    this.flashRows([row], '#ffd23e');
+    for (let col = 0; col < BOARD_WIDTH; col += 1) {
+      this.burst(col, row, '#ffd23e', 6, 2, 'star');
+    }
+    this.addShake(0.18);
+  }
+
+  /** Show/hide the gold target row strip inside the well. */
+  setGoldRow(row: number): void {
+    if (row < 0) {
+      this.goldStrip.visible = false;
+      return;
+    }
+    this.goldStrip.visible = true;
+    this.goldStrip.position.y = cellToWorldY(row);
+    this.goldRowPulse = 0;
   }
 
   addShake(strength: number): void {
@@ -746,7 +978,7 @@ export class BoardView {
       this.root.position.set(0, 0, 0);
     }
 
-    // Badge gem hover + pulse.
+    // Badge gem hover + pulse + emoji bob.
     if (this.badgeGem?.visible && this.badgeCell) {
       const [col, row] = this.badgeCell;
       const pulse = 1 + Math.sin(this.time * 7) * 0.12;
@@ -755,24 +987,55 @@ export class BoardView {
       this.badgeGem.position.x = cellToWorldX(col);
       this.badgeGem.scale.set(pulse, pulse * 1.25, pulse);
       this.badgeLight.intensity = 3.2 + Math.sin(this.time * 7) * 0.8;
+      if (this.badgeEmoji?.visible) {
+        this.badgeEmoji.position.y = cellToWorldY(row) + CELL * (1.06 + Math.sin(this.time * 5) * 0.05);
+        this.badgeEmoji.position.x = cellToWorldX(col);
+      }
     }
 
-    // Particles.
+    // Gold strip pulse.
+    if (this.goldStrip.visible) {
+      this.goldRowPulse += delta;
+      const glow = 0.4 + Math.sin(this.goldRowPulse * 5) * 0.18;
+      (this.goldStrip.material as THREE.MeshBasicMaterial).opacity = glow;
+      this.goldStrip.scale.x = 1 + Math.sin(this.goldRowPulse * 5) * 0.015;
+    }
+
+    // Particles (sprite-based).
     for (let i = this.particles.length - 1; i >= 0; i -= 1) {
       const particle = this.particles[i];
       particle.life -= delta;
       if (particle.life <= 0) {
-        this.root.remove(particle.mesh);
-        particle.mesh.geometry.dispose();
-        (particle.mesh.material as THREE.Material).dispose();
+        this.root.remove(particle.sprite);
+        (particle.sprite.material as THREE.Material).dispose();
         this.particles.splice(i, 1);
         continue;
       }
       particle.velocity.y -= delta * 6;
-      particle.mesh.position.addScaledVector(particle.velocity, delta);
-      particle.mesh.rotation.x += particle.spin.x * delta;
-      particle.mesh.rotation.y += particle.spin.y * delta;
-      (particle.mesh.material as THREE.MeshBasicMaterial).opacity = Math.max(0, particle.life / 0.3);
+      particle.sprite.position.addScaledVector(particle.velocity, delta);
+      particle.sprite.material.rotation += particle.spin * delta;
+      (particle.sprite.material as THREE.SpriteMaterial).opacity = Math.max(0, particle.life / 0.3);
+    }
+
+    // Ring FX (time power-up).
+    for (let i = this.rings.length - 1; i >= 0; i -= 1) {
+      const ring = this.rings[i];
+      if (ring.delay > 0) {
+        ring.delay -= delta;
+        continue;
+      }
+      ring.life -= delta;
+      if (ring.life <= 0) {
+        this.root.remove(ring.mesh);
+        ring.mesh.geometry.dispose();
+        (ring.mesh.material as THREE.Material).dispose();
+        this.rings.splice(i, 1);
+        continue;
+      }
+      const t = 1 - ring.life / ring.maxLife;
+      ring.mesh.scale.setScalar(0.4 + t * 2.2);
+      ring.mesh.position.y += delta * 1.6;
+      (ring.mesh.material as THREE.MeshBasicMaterial).opacity = Math.max(0, 1 - t) * 0.9;
     }
 
     // Row flash planes.
@@ -842,6 +1105,8 @@ export class BoardView {
       material.map?.dispose();
       material.dispose();
     }
+    for (const texture of this.particleTextures.values()) texture.dispose();
+    for (const texture of this.particleFallbacks) texture.dispose();
     for (const mesh of this.staticMeshes.values()) {
       mesh.geometry.dispose();
       if (Array.isArray(mesh.material)) mesh.material.forEach((m) => m.dispose());

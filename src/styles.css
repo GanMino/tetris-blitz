@@ -8,6 +8,7 @@
   --neon-cyan: #29b6f6;
   --neon-gold: #ffd23e;
   --danger: #ff4a5a;
+  --arcade-font: "Press Start 2P", "Arial Black", Avenir, sans-serif;
   --hud-font:
     "Arial Black", "Avenir Next Condensed", Avenir, "Segoe UI", "PingFang SC",
     "Microsoft YaHei", sans-serif;
@@ -133,25 +134,27 @@ body.time-critical #vignette {
 .hud-label {
   display: block;
   color: var(--muted);
-  font-size: 0.62rem;
+  font-size: 0.58rem;
   letter-spacing: 0.14em;
+  font-family: var(--arcade-font);
 }
 
 .hud-metric strong {
   display: block;
-  margin-top: 2px;
-  font-size: 1.35rem;
+  margin-top: 4px;
+  font-size: 0.95rem;
   line-height: 1;
+  font-family: var(--arcade-font);
   font-variant-numeric: tabular-nums;
   text-shadow: 0 0 12px rgba(120, 200, 255, 0.35);
 }
 
 #time-metric {
-  min-width: 108px;
+  min-width: 120px;
 }
 
 #time-metric strong {
-  font-size: 1.6rem;
+  font-size: 1.15rem;
 }
 
 #time-metric.danger strong {
@@ -218,6 +221,68 @@ body.time-critical #vignette {
   pointer-events: none;
 }
 
+/* --------------------------------------------------------- power-up bank */
+
+#bank-slots {
+  gap: 7px;
+  pointer-events: auto;
+}
+
+.bank-slot {
+  position: relative;
+  width: 54px;
+  height: 54px;
+  border: 2px solid rgba(120, 140, 255, 0.35);
+  border-radius: 12px;
+  background: rgba(10, 13, 34, 0.8);
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  backdrop-filter: blur(6px);
+}
+
+.bank-slot .slot-emoji {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.bank-slot .slot-key {
+  font-family: var(--arcade-font);
+  font-size: 0.5rem;
+  color: var(--muted);
+}
+
+.bank-slot.filled {
+  border-color: var(--slot-color, var(--neon-cyan));
+  box-shadow: 0 0 14px color-mix(in srgb, var(--slot-color, var(--neon-cyan)) 55%, transparent);
+  animation: slot-fill 0.3s ease-out;
+}
+
+.bank-slot.filled .slot-emoji {
+  filter: drop-shadow(0 0 6px var(--slot-color, var(--neon-cyan)));
+}
+
+@keyframes slot-fill {
+  0% {
+    transform: scale(1.3);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.bank-slot:hover {
+  border-color: var(--ink);
+}
+
+.bank-slot:active {
+  transform: scale(0.94);
+}
+
 .effect-badge {
   display: flex;
   align-items: baseline;
@@ -240,12 +305,13 @@ body.time-critical #vignette {
   top: calc(100% + 10px);
   left: 50%;
   transform: translateX(-50%);
-  padding: 6px 18px;
+  padding: 8px 20px;
   border: 2px solid var(--neon-gold);
   border-radius: 999px;
   background: rgba(20, 16, 4, 0.75);
   color: var(--neon-gold);
-  font-size: 1.15rem;
+  font-family: var(--arcade-font);
+  font-size: 0.9rem;
   letter-spacing: 0.1em;
   text-shadow: 0 0 12px rgba(255, 210, 62, 0.7);
   animation: combo-pop 0.25s ease-out;
@@ -269,7 +335,8 @@ body.time-critical #vignette {
   transform: translate(-50%, -50%) scale(0.4);
   opacity: 0;
   pointer-events: none;
-  font-size: clamp(1.5rem, 6vw, 2.6rem);
+  font-family: var(--arcade-font);
+  font-size: clamp(1.1rem, 4.5vw, 1.9rem);
   font-weight: 900;
   letter-spacing: 0.08em;
   white-space: nowrap;
@@ -316,6 +383,10 @@ body.time-critical #vignette {
   color: var(--neon-pink);
 }
 
+.banner-gold {
+  color: var(--neon-gold);
+}
+
 .banner-warn {
   color: var(--danger);
 }
@@ -331,8 +402,9 @@ body.time-critical #vignette {
   justify-content: center;
   gap: 14px;
   padding: max(20px, env(safe-area-inset-top)) 24px max(20px, env(safe-area-inset-bottom));
-  background: rgba(4, 5, 14, 0.72);
-  backdrop-filter: blur(6px);
+  background:
+    radial-gradient(ellipse at center, rgba(6, 8, 24, 0.42) 0%, rgba(4, 5, 16, 0.66) 100%);
+  backdrop-filter: blur(3px);
   text-align: center;
   z-index: 20;
 }
@@ -343,8 +415,9 @@ body.time-critical #vignette {
 
 .game-title {
   margin: 0;
-  font-size: clamp(2.6rem, 11vw, 5rem);
-  line-height: 1;
+  font-family: var(--arcade-font);
+  font-size: clamp(1.7rem, 8vw, 3.6rem);
+  line-height: 1.2;
   letter-spacing: 0.06em;
   color: #fff;
   -webkit-text-stroke: 2px #1b1040;
@@ -543,6 +616,20 @@ body.time-critical #vignette {
 @media (pointer: coarse), (max-width: 760px) {
   #touch-controls {
     display: flex;
+  }
+
+  /* Bank slots move to thumb reach, above the touch controls. */
+  #bank-slots {
+    position: fixed;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: calc(max(96px, 13vh) + env(safe-area-inset-bottom));
+    z-index: 10;
+  }
+
+  .bank-slot {
+    width: 48px;
+    height: 48px;
   }
 
   #hud {

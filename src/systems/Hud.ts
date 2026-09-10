@@ -1,4 +1,5 @@
-import { POWERUPS, TETROMINO_COLORS, type PowerUpKind, type TetrominoType } from '../game/constants';
+import { POWERUPS, type PowerUpKind, type TetrominoType } from '../game/constants';
+import { TETROMINO_COLORS } from '../game/constants';
 import { ROTATIONS } from '../game/Pieces';
 
 export type GamePhase = 'menu' | 'playing' | 'paused' | 'gameover';
@@ -23,6 +24,7 @@ export interface HudCallbacks {
   onMenu: () => void;
   onPauseToggle: () => void;
   onMute: () => void;
+  onTriggerBank: (index: number) => void;
 }
 
 /**
@@ -51,6 +53,8 @@ export class Hud {
   private readonly newBestTag = this.el('#new-best-tag');
   private readonly muteButton = this.el<HTMLButtonElement>('#mute-button');
   private readonly pauseButton = this.el<HTMLButtonElement>('#pause-button');
+  private readonly bankBox = this.el('#bank-slots');
+  private readonly bankButtons: HTMLButtonElement[] = [];
   private readonly menuStartButton = this.el<HTMLButtonElement>('#menu-start-button');
   private readonly pauseResumeButton = this.el<HTMLButtonElement>('#pause-resume-button');
   private readonly pauseRestartButton = this.el<HTMLButtonElement>('#pause-restart-button');
@@ -69,7 +73,44 @@ export class Hud {
     this.gameoverMenuButton.addEventListener('click', () => this.callbacks.onMenu());
     this.pauseButton.addEventListener('click', () => this.callbacks.onPauseToggle());
     this.muteButton.addEventListener('click', () => this.callbacks.onMute());
+    for (let i = 0; i < 3; i += 1) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'bank-slot empty';
+      button.innerHTML = `<span class="slot-emoji">·</span><span class="slot-key">${i + 1}</span>`;
+      button.addEventListener('click', () => this.callbacks.onTriggerBank(i));
+      this.bankBox.appendChild(button);
+      this.bankButtons.push(button);
+    }
     this.buildLegend();
+  }
+
+  /** Update the power-up bank slots (empty slots show the key hint). */
+  setBank(bank: PowerUpKind[]): void {
+    for (let i = 0; i < this.bankButtons.length; i += 1) {
+      const button = this.bankButtons[i];
+      const kind = bank[i];
+      const emoji = button.querySelector('.slot-emoji');
+      if (!kind) {
+        button.className = 'bank-slot empty';
+        if (emoji) emoji.textContent = '·';
+      } else {
+        const def = POWERUPS[kind];
+        button.className = `bank-slot filled bank-${kind}`;
+        button.style.setProperty('--slot-color', def.color);
+        if (emoji) emoji.textContent = def.emoji;
+      }
+    }
+  }
+
+  bankPop(index: number): void {
+    this.bankButtons[index]?.animate(
+      [
+        { transform: 'scale(1.35)' },
+        { transform: 'scale(1)' },
+      ],
+      { duration: 240, easing: 'ease-out' },
+    );
   }
 
   setPhase(phase: GamePhase, reason?: 'time' | 'stack'): void {
@@ -156,7 +197,7 @@ export class Hud {
     }
   }
 
-  banner(text: string, kind: 'powerup' | 'level' | 'score' | 'warn' = 'powerup'): void {
+  banner(text: string, kind: 'powerup' | 'level' | 'score' | 'warn' | 'gold' = 'powerup'): void {
     this.bannerBox.textContent = text;
     this.bannerBox.className = `banner-show banner-${kind}`;
     if (this.bannerTimer !== null) window.clearTimeout(this.bannerTimer);
@@ -180,7 +221,7 @@ export class Hud {
       chip.style.background = `${def.color}22`;
       chip.style.borderColor = def.color;
       chip.style.color = def.color;
-      chip.textContent = `${def.label} ${def.name}`;
+      chip.textContent = `${def.emoji} ${def.name}`;
       legend.appendChild(chip);
     }
   }
