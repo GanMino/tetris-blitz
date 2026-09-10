@@ -1,0 +1,105 @@
+{
+  "url": "http://127.0.0.1:5188",
+  "mode": "mobile",
+  "state": "gameover-time",
+  "requestedState": "gameover-time",
+  "appliedState": "gameover-time",
+  "runId": "pass-3",
+  "seed": null,
+  "screenshotPath": "artifacts/canvas-inspection/pass-3/mobile-gameover-time.png",
+  "gpu": {
+    "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)",
+    "vendor": "Google Inc. (Apple)",
+    "softwareRendered": false
+  },
+  "result": {
+    "ok": true,
+    "reason": "nonblank",
+    "rect": {
+      "x": 0,
+      "y": 0,
+      "width": 390,
+      "height": 664
+    },
+    "drawingBuffer": {
+      "width": 780,
+      "height": 1328
+    },
+    "alphaPixels": 4097,
+    "variance": 252,
+    "colorBuckets": 101,
+    "metrics": {
+      "colorBuckets": 110,
+      "colorEntropyBits": 4.11,
+      "edgeDensity": 0.068,
+      "luminance": {
+        "mean": 23.6,
+        "p5": 6.5,
+        "p95": 83.7,
+        "contrast": 77.2
+      },
+      "dominantColorShare": 0.254,
+      "nonBackgroundShare": 0.746
+    },
+    "renderBudget": {
+      "tier": "mobile",
+      "note": "starting-point budget; adjust per game and document overrides",
+      "rows": [
+        {
+          "metric": "calls",
+          "actual": 22,
+          "limit": 150,
+          "ok": true
+        },
+        {
+          "metric": "triangles",
+          "actual": 71844,
+          "limit": 300000,
+          "ok": true
+        },
+        {
+          "metric": "geometries",
+          "actual": 13,
+          "limit": 200,
+          "ok": true
+        },
+        {
+          "metric": "textures",
+          "actual": 12,
+          "limit": 40,
+          "ok": true
+        }
+      ],
+      "withinBudget": true
+    },
+    "diagnostics": {
+      "frame": 162,
+      "phase": "gameover",
+      "elapsed": 130,
+      "timeLeft": 0,
+      "score": 0,
+      "level": 1,
+      "lines": 0,
+      "combo": 0,
+      "stackTop": 8,
+      "active": null,
+      "powerup": null,
+      "best": 0,
+      "renderer": {
+        "calls": 22,
+        "triangles": 71844,
+        "geometries": 13,
+        "textures": 12
+      },
+      "canvas": {
+        "clientWidth": 390,
+        "clientHeight": 664,
+        "width": 780,
+        "height": 1328,
+        "dpr": 2
+      }
+    }
+  },
+  "consoleErrors": [],
+  "pageErrors": []
+}

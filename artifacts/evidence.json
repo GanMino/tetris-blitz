@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "runId": "pass-3",
+  "captures": [
+    { "mode": "desktop", "state": "menu", "report": "artifacts/canvas-inspection/pass-3/desktop-menu.json" },
+    { "mode": "desktop", "state": "active-play", "report": "artifacts/canvas-inspection/pass-3/desktop-active-play.json" },
+    { "mode": "desktop", "state": "powerup", "report": "artifacts/canvas-inspection/pass-3/desktop-powerup.json" },
+    { "mode": "desktop", "state": "danger", "report": "artifacts/canvas-inspection/pass-3/desktop-danger.json" },
+    { "mode": "desktop", "state": "gameover-time", "report": "artifacts/canvas-inspection/pass-3/desktop-gameover-time.json" },
+    { "mode": "desktop", "state": "paused", "report": "artifacts/canvas-inspection/pass-3/desktop-paused.json" },
+    { "mode": "mobile", "state": "active-play", "report": "artifacts/canvas-inspection/pass-3/mobile-active-play.json" },
+    { "mode": "mobile", "state": "danger", "report": "artifacts/canvas-inspection/pass-3/mobile-danger.json" },
+    { "mode": "mobile", "state": "gameover-time", "report": "artifacts/canvas-inspection/pass-3/mobile-gameover-time.json" }
+  ],
+  "artifacts": [
+    "artifacts/canvas-inspection/prod/desktop-active-play.json",
+    "test-results/.last-run.json"
+  ]
+}

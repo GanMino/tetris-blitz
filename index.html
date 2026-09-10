@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no"
+    />
+    <meta name="theme-color" content="#05060f" />
+    <link rel="icon" href="data:," />
+    <title>TETRIS BLITZ · 限时道具方块</title>
+  </head>
+  <body>
+    <main id="app">
+      <canvas id="game-canvas" aria-label="TETRIS BLITZ 游戏画布"></canvas>
+      <div id="vignette" aria-hidden="true"></div>
+
+      <section id="hud" aria-live="polite">
+        <div class="hud-cluster">
+          <div class="hud-metric" id="time-metric">
+            <span class="hud-label">TIME</span>
+            <strong id="timer-value">2:00</strong>
+          </div>
+          <div class="hud-metric">
+            <span class="hud-label">LEVEL</span>
+            <strong id="level-value">1</strong>
+          </div>
+          <div class="hud-metric">
+            <span class="hud-label">SCORE</span>
+            <strong id="score-value">0</strong>
+          </div>
+          <div class="hud-metric">
+            <span class="hud-label">LINES</span>
+            <strong id="lines-value">0</strong>
+          </div>
+        </div>
+        <div class="hud-cluster hud-right">
+          <div class="hud-metric">
+            <span class="hud-label">BEST</span>
+            <strong id="best-value">0</strong>
+          </div>
+          <div class="hud-metric" id="next-metric">
+            <span class="hud-label">NEXT</span>
+            <div id="next-preview"></div>
+          </div>
+          <div id="effects-box"></div>
+          <button id="pause-button" class="icon-button" type="button" aria-label="暂停">⏸</button>
+          <button id="mute-button" class="icon-button" type="button" aria-label="静音">♪</button>
+        </div>
+        <div id="combo-box" class="hidden"></div>
+      </section>
+
+      <div id="banner" role="status"></div>
+
+      <div id="menu-overlay" class="overlay">
+        <h1 class="game-title">TETRIS <span class="title-accent">BLITZ</span></h1>
+        <p class="game-subtitle">限时 120 秒 · 道具方块 · 消行续命</p>
+        <button id="menu-start-button" class="primary-button" type="button">▶ 开始游戏</button>
+        <div class="best-line">最高分 <strong id="menu-best-value">0</strong></div>
+        <div id="powerup-legend"></div>
+        <p class="controls-hint">← → 移动 · ↑/Z 旋转 · X 反转 · ↓ 软降 · 空格 硬降 · P 暂停</p>
+      </div>
+
+      <div id="pause-overlay" class="overlay hidden">
+        <h2 class="overlay-title">暂停</h2>
+        <button id="pause-resume-button" class="primary-button" type="button">▶ 继续</button>
+        <button id="pause-restart-button" class="secondary-button" type="button">↻ 重新开始</button>
+        <button id="pause-menu-button" class="secondary-button" type="button">返回主菜单</button>
+      </div>
+
+      <div id="gameover-overlay" class="overlay hidden">
+        <h2 class="overlay-title" id="gameover-reason">时间到！</h2>
+        <div class="gameover-score">得分 <strong id="gameover-score">0</strong></div>
+        <div class="best-line">最高分 <strong id="gameover-best">0</strong></div>
+        <div id="new-best-tag" class="hidden">★ 新纪录！</div>
+        <button id="gameover-retry-button" class="primary-button" type="button">↻ 再来一局</button>
+        <button id="gameover-menu-button" class="secondary-button" type="button">返回主菜单</button>
+      </div>
+
+      <div id="touch-controls" aria-hidden="true">
+        <div class="touch-cluster">
+          <button id="btn-left" class="touch-button" type="button" aria-label="左移">◀</button>
+          <button id="btn-down" class="touch-button" type="button" aria-label="软降">▼</button>
+          <button id="btn-right" class="touch-button" type="button" aria-label="右移">▶</button>
+        </div>
+        <div class="touch-cluster">
+          <button id="btn-rotate-ccw" class="touch-button small" type="button" aria-label="逆时针旋转">↺</button>
+          <button id="btn-rotate-cw" class="touch-button small" type="button" aria-label="顺时针旋转">⟳</button>
+          <button id="btn-drop" class="touch-button drop" type="button" aria-label="硬降">⏬</button>
+        </div>
+      </div>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

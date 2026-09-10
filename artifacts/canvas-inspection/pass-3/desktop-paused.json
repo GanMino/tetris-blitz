@@ -1,0 +1,110 @@
+{
+  "url": "http://127.0.0.1:5188",
+  "mode": "desktop",
+  "state": "paused",
+  "requestedState": "paused",
+  "appliedState": "paused",
+  "runId": "pass-3",
+  "seed": null,
+  "screenshotPath": "artifacts/canvas-inspection/pass-3/desktop-paused.png",
+  "gpu": {
+    "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)",
+    "vendor": "Google Inc. (Apple)",
+    "softwareRendered": false
+  },
+  "result": {
+    "ok": true,
+    "reason": "nonblank",
+    "rect": {
+      "x": 0,
+      "y": 0,
+      "width": 1280,
+      "height": 720
+    },
+    "drawingBuffer": {
+      "width": 1280,
+      "height": 720
+    },
+    "alphaPixels": 4096,
+    "variance": 252,
+    "colorBuckets": 83,
+    "metrics": {
+      "colorBuckets": 102,
+      "colorEntropyBits": 3.65,
+      "edgeDensity": 0.065,
+      "luminance": {
+        "mean": 16.8,
+        "p5": 5.4,
+        "p95": 43.4,
+        "contrast": 38
+      },
+      "dominantColorShare": 0.219,
+      "nonBackgroundShare": 0.781
+    },
+    "renderBudget": {
+      "tier": "desktop",
+      "note": "starting-point budget; adjust per game and document overrides",
+      "rows": [
+        {
+          "metric": "calls",
+          "actual": 36,
+          "limit": 300,
+          "ok": true
+        },
+        {
+          "metric": "triangles",
+          "actual": 76600,
+          "limit": 750000,
+          "ok": true
+        },
+        {
+          "metric": "geometries",
+          "actual": 15,
+          "limit": 300,
+          "ok": true
+        },
+        {
+          "metric": "textures",
+          "actual": 14,
+          "limit": 60,
+          "ok": true
+        }
+      ],
+      "withinBudget": true
+    },
+    "diagnostics": {
+      "frame": 208,
+      "phase": "paused",
+      "elapsed": 0,
+      "timeLeft": 120,
+      "score": 0,
+      "level": 1,
+      "lines": 0,
+      "combo": 0,
+      "stackTop": 8,
+      "active": {
+        "type": "O",
+        "x": 3,
+        "y": 6,
+        "rotation": 0
+      },
+      "powerup": null,
+      "best": 0,
+      "renderer": {
+        "calls": 36,
+        "triangles": 76600,
+        "geometries": 15,
+        "textures": 14
+      },
+      "canvas": {
+        "clientWidth": 1280,
+        "clientHeight": 720,
+        "width": 1280,
+        "height": 720,
+        "dpr": 1
+      }
+    }
+  },
+  "consoleErrors": [],
+  "pageErrors": []
+}
