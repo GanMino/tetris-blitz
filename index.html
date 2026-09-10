@@ -42,6 +42,10 @@
             <span class="hud-label">LINES</span>
             <strong id="lines-value">0</strong>
           </div>
+          <div class="hud-metric">
+            <span class="hud-label">STAGE</span>
+            <strong id="stage-value">1/3</strong>
+          </div>
         </div>
         <div id="bank-slots" class="hud-cluster" aria-label="道具银行"></div>
         <div class="hud-cluster hud-right">
@@ -61,6 +65,17 @@
       </section>
 
       <div id="banner" role="status"></div>
+
+      <div id="boss-bar" class="hidden" aria-hidden="true">
+        <span id="boss-name">BOSS</span>
+        <div id="boss-hp-track"><div id="boss-hp-fill"></div></div>
+      </div>
+
+      <div id="upgrade-overlay" class="overlay hidden">
+        <h2 class="overlay-title">选择强化</h2>
+        <p class="game-subtitle">三选一 · 效果持续整局</p>
+        <div id="upgrade-cards"></div>
+      </div>
 
       <div id="menu-overlay" class="overlay">
         <h1 class="game-title">TETRIS <span class="title-accent">BLITZ</span></h1>

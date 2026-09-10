@@ -56,6 +56,24 @@ export const TUNING = {
   cascade: {
     secondsPerRow: 2, // extra time per cascaded row
   },
+  boss: {
+    spawnTimeLeft: 60, // boss appears when the clock reaches this
+    hp: [120, 180, 260], // per stage (1..3)
+    lineDamage: [0, 10, 25, 45, 70], // damage per 1/2/3/4 lines
+    damageComboStep: 0.2, // +20% damage per combo step above 1
+    bombDamage: 15,
+    attackIntervals: [10, 8, 6.5], // seconds between attacks per stage
+    garbageRows: [1, 1, 2], // garbage rows per attack per stage
+    shuffleRows: 3,
+    furyDuration: 10,
+    furyGravityMult: 1.5,
+    phase2HpFactor: 0.5, // below 50% HP: attacks 33% faster, +1 garbage row
+    stageBonusSeconds: 60,
+    stageBonusScore: 1000,
+  },
+  stage: {
+    count: 3,
+  },
   scoring: {
     lineScores: [0, 100, 300, 500, 800], // index = lines cleared in one lock
     comboSteps: [1, 1.5, 2, 2.5, 3], // combo 1..5, capped at last

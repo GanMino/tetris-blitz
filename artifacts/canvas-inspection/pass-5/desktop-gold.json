@@ -1,0 +1,117 @@
+{
+  "url": "http://127.0.0.1:5188",
+  "mode": "desktop",
+  "state": "gold",
+  "requestedState": "gold",
+  "appliedState": "gold",
+  "runId": "pass-5",
+  "seed": null,
+  "screenshotPath": "artifacts/canvas-inspection/pass-5/desktop-gold.png",
+  "gpu": {
+    "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)",
+    "vendor": "Google Inc. (Apple)",
+    "softwareRendered": false
+  },
+  "result": {
+    "ok": true,
+    "reason": "nonblank",
+    "rect": {
+      "x": 0,
+      "y": 0,
+      "width": 1280,
+      "height": 720
+    },
+    "drawingBuffer": {
+      "width": 1280,
+      "height": 720
+    },
+    "alphaPixels": 4096,
+    "variance": 255,
+    "colorBuckets": 224,
+    "metrics": {
+      "colorBuckets": 366,
+      "colorEntropyBits": 3.94,
+      "edgeDensity": 0.177,
+      "luminance": {
+        "mean": 22.3,
+        "p5": 1.7,
+        "p95": 130.5,
+        "contrast": 128.8
+      },
+      "dominantColorShare": 0.296,
+      "nonBackgroundShare": 0.704
+    },
+    "renderBudget": {
+      "tier": "desktop",
+      "note": "starting-point budget; adjust per game and document overrides",
+      "rows": [
+        {
+          "metric": "calls",
+          "actual": 37,
+          "limit": 300,
+          "ok": true
+        },
+        {
+          "metric": "triangles",
+          "actual": 46026,
+          "limit": 750000,
+          "ok": true
+        },
+        {
+          "metric": "geometries",
+          "actual": 16,
+          "limit": 300,
+          "ok": true
+        },
+        {
+          "metric": "textures",
+          "actual": 15,
+          "limit": 60,
+          "ok": true
+        }
+      ],
+      "withinBudget": true
+    },
+    "diagnostics": {
+      "frame": 159,
+      "phase": "playing",
+      "elapsed": 50,
+      "timeLeft": 70,
+      "score": 1560,
+      "level": 2,
+      "lines": 9,
+      "combo": 0,
+      "bank": [],
+      "goldRow": 12,
+      "occupied": 70,
+      "stage": 1,
+      "bossHp": null,
+      "bossMaxHp": null,
+      "upgradeActive": false,
+      "stackTop": 14,
+      "active": {
+        "type": "L",
+        "x": 3,
+        "y": 11,
+        "rotation": 1
+      },
+      "powerup": null,
+      "best": 0,
+      "renderer": {
+        "calls": 37,
+        "triangles": 46026,
+        "geometries": 16,
+        "textures": 15
+      },
+      "canvas": {
+        "clientWidth": 1280,
+        "clientHeight": 720,
+        "width": 1280,
+        "height": 720,
+        "dpr": 1
+      }
+    }
+  },
+  "consoleErrors": [],
+  "pageErrors": []
+}

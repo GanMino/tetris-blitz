@@ -110,7 +110,39 @@ test('bot playtest: input drives locks, line clears, time-up and retry', async (
   expect(bankAfter.occupied).toBeLessThan(bankBefore.occupied);
   expect(bankAfter.bank).toEqual(['double']);
 
-  // --- Phase 2: the time limit ends the run.
+  // --- Phase 2: kill a boss with a 4-line clear → upgrade choice → stage 2.
+  await page.evaluate(async () => {
+    const hooks = window.__THREE_GAME_TEST_HOOKS__;
+    await hooks?.setState('boss-low');
+  });
+  await tap('ArrowUp');
+  await tap('ArrowRight');
+  await tap('ArrowRight');
+  await tap('Space', 90);
+  await expect(page.locator('#upgrade-overlay')).toBeVisible({ timeout: 5_000 });
+  await tap('Digit1');
+  await expect(page.locator('#upgrade-overlay')).toBeHidden();
+  const afterUpgrade = await page.evaluate(() => {
+    const d = window.__THREE_GAME_DIAGNOSTICS__;
+    return { stage: d?.stage ?? 0, timeLeft: d?.timeLeft ?? 0, upgradeActive: d?.upgradeActive ?? true };
+  });
+  expect(afterUpgrade.stage).toBe(2);
+  expect(afterUpgrade.timeLeft).toBeGreaterThan(45); // +60s stage bonus (modifiers may add more)
+  expect(afterUpgrade.upgradeActive).toBe(false);
+
+  // --- Phase 3: defeat the final boss → victory overlay.
+  await page.evaluate(async () => {
+    const hooks = window.__THREE_GAME_TEST_HOOKS__;
+    await hooks?.setState('boss-final');
+  });
+  await tap('ArrowUp');
+  await tap('ArrowRight');
+  await tap('ArrowRight');
+  await tap('Space', 90);
+  await expect(page.locator('#gameover-overlay')).toBeVisible({ timeout: 5_000 });
+  await expect(page.locator('#gameover-reason')).toHaveText('胜利！三连 BOSS 击破！');
+
+  // --- Phase 4: the time limit ends the run.
   await page.evaluate(async () => {
     const hooks = window.__THREE_GAME_TEST_HOOKS__;
     await hooks?.setState('time-low');
@@ -118,7 +150,7 @@ test('bot playtest: input drives locks, line clears, time-up and retry', async (
   await expect(page.locator('#gameover-overlay')).toBeVisible({ timeout: 8_000 });
   await expect(page.locator('#gameover-reason')).toHaveText('时间到！');
 
-  // --- Phase 3: retry restarts into a live run.
+  // --- Phase 5: retry restarts into a live run.
   await page.click('#gameover-retry-button');
   await expect
     .poll(async () => (await page.evaluate(() => window.__THREE_GAME_DIAGNOSTICS__?.phase)) ?? '')
@@ -138,8 +170,10 @@ test('bot playtest: input drives locks, line clears, time-up and retry', async (
         after: bankAfter,
       },
     },
-    phase2: { timeUpOverlayShown: true },
-    phase3: { retryRestarted: true },
+    phase2: { bossKilled: true, upgradeChosen: true, stageAfter: afterUpgrade.stage },
+    phase3: { victoryOverlayShown: true },
+    phase4: { timeUpOverlayShown: true },
+    phase5: { retryRestarted: true },
     softlockWindows: softlockWindows.length,
     consoleErrors,
     pageErrors,

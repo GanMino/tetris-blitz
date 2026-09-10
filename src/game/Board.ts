@@ -3,8 +3,12 @@ import type { PowerUpPick } from './PowerUps';
 import type { ActivePiece } from './Pieces';
 import { pieceCells } from './Pieces';
 
+/** Garbage cells use a distinct gray marker type. */
+export type GarbageType = 'garbage';
+export type CellType = TetrominoType | GarbageType;
+
 export interface BoardCell {
-  type: TetrominoType | null;
+  type: CellType | null;
   /** Remnant badge (rendered fading) after a power-up piece locks. */
   badge: PowerUpKind | null;
   /** Age in locks; used for subtle color stabilization. */
@@ -267,8 +271,59 @@ export class Board {
 
   /** Hex colors of each cell in a row (for burst coloring). */
   cellTypes(row: number): string[] {
-    return this.cells[row].map((c) => (c.type ? TETROMINO_COLORS[c.type] : '#ffffff'));
+    return this.cells[row].map((c) => {
+      if (!c.type) return '#ffffff';
+      if (c.type === 'garbage') return GARBAGE_COLOR;
+      return TETROMINO_COLORS[c.type];
+    });
+  }
+
+  /**
+   * Boss garbage attack: the whole stack shifts UP by `count` rows and gray
+   * garbage rows (one random hole each) fill the bottom. If any block is
+   * pushed out through the top, the player tops out.
+   */
+  addGarbageRows(count: number, rng: () => number): { topOut: boolean } {
+    let topOut = false;
+    for (let row = 0; row < count; row += 1) {
+      if (this.cells[row]?.some((c) => c.type !== null)) topOut = true;
+    }
+    for (let row = 0; row < BOARD_HEIGHT - count; row += 1) {
+      for (let col = 0; col < BOARD_WIDTH; col += 1) {
+        const src = this.cells[row + count][col];
+        this.cells[row][col].type = src.type;
+        this.cells[row][col].badge = src.badge;
+        this.cells[row][col].flash = src.flash;
+        src.type = null;
+        src.badge = null;
+        src.flash = 0;
+      }
+    }
+    for (let row = BOARD_HEIGHT - count; row < BOARD_HEIGHT; row += 1) {
+      const hole = Math.floor(rng() * BOARD_WIDTH);
+      for (let col = 0; col < BOARD_WIDTH; col += 1) {
+        const cell = this.cells[row][col];
+        cell.type = col === hole ? null : 'garbage';
+        cell.badge = null;
+        cell.flash = 1;
+      }
+    }
+    return { topOut };
+  }
+
+  /** Boss shuffle attack: permute the cells of the bottom `count` rows. */
+  shuffleBottomRows(count: number, rng: () => number): void {
+    const start = Math.max(0, BOARD_HEIGHT - count);
+    for (let row = start; row < BOARD_HEIGHT; row += 1) {
+      const line = this.cells[row];
+      for (let i = line.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(rng() * (i + 1));
+        [line[i], line[j]] = [line[j], line[i]];
+      }
+    }
   }
 }
+
+export const GARBAGE_COLOR = '#8b93a7';
 
 export type { PowerUpPick };

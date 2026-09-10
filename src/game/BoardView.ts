@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import {
+  BOARD_BOTTOM_Y,
   BOARD_HEIGHT,
   BOARD_TOP_Y,
   BOARD_WIDTH,
@@ -15,7 +16,7 @@ import {
   type PowerUpKind,
   type TetrominoType,
 } from './constants';
-import type { Board } from './Board';
+import { GARBAGE_COLOR, type Board } from './Board';
 
 const BOARD_W = BOARD_WIDTH * CELL;
 const BOARD_H = VISIBLE_ROWS * CELL;
@@ -50,6 +51,8 @@ export class BoardView {
   readonly root = new THREE.Group();
 
   private readonly staticMeshes = new Map<TetrominoType, THREE.InstancedMesh>();
+  private garbageMesh!: THREE.InstancedMesh;
+  private garbageMaterial!: THREE.MeshStandardMaterial;
   private readonly blockGeometry: RoundedBoxGeometry;
   private readonly ghostGroup = new THREE.Group();
   private readonly ghostMeshes: THREE.Mesh[] = [];
@@ -67,7 +70,10 @@ export class BoardView {
   private readonly gemPool: THREE.Mesh[] = [];
   private readonly gemStates: Array<{ life: number; maxLife: number }> = [];
   private readonly goldStrip: THREE.Mesh;
+  private readonly warnStrip: THREE.Mesh;
   private goldRowPulse = 0;
+  private bossMode = false;
+  private garbageWarnOn = false;
   private readonly stars: THREE.Points;
   private readonly starBase: Float32Array;
   private readonly wings = new THREE.Group();
@@ -86,6 +92,7 @@ export class BoardView {
     this.starBase = new Float32Array(this.stars.geometry.getAttribute('position').array);
     this.buildFrame();
     this.goldStrip = this.buildGoldStrip();
+    this.warnStrip = this.buildWarnStrip();
     this.buildCabinetWings();
     this.buildMarquee();
     this.buildStaticPool();
@@ -133,6 +140,35 @@ export class BoardView {
     strip.visible = false;
     this.root.add(strip);
     return strip;
+  }
+
+  /** Red warning strip at the well bottom (garbage attack telegraph). */
+  private buildWarnStrip(): THREE.Mesh {
+    const strip = new THREE.Mesh(
+      new THREE.PlaneGeometry(BOARD_W * 0.96, CELL * 2.6),
+      new THREE.MeshBasicMaterial({
+        color: '#ff3b4e',
+        transparent: true,
+        opacity: 0.5,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      }),
+    );
+    strip.position.set(0, BOARD_BOTTOM_Y - CELL * 1.3, 0.34);
+    strip.visible = false;
+    this.root.add(strip);
+    return strip;
+  }
+
+  /** Telegraph the incoming garbage attack. */
+  setGarbageWarn(on: boolean): void {
+    this.garbageWarnOn = on;
+    if (!on) this.warnStrip.visible = false;
+  }
+
+  /** Boss visible → camera pulls back for headroom. */
+  setBossMode(on: boolean): void {
+    this.bossMode = on;
   }
 
   // ------------------------------------------------------------- scenery
@@ -456,6 +492,20 @@ export class BoardView {
       this.root.add(instanced);
       this.staticMeshes.set(type, instanced);
     }
+    // Gray garbage blocks (boss attacks) — distinct rough stone look.
+    const garbageColor = new THREE.Color(GARBAGE_COLOR);
+    this.garbageMaterial = new THREE.MeshStandardMaterial({
+      color: '#ffffff',
+      map: this.gemTexture(garbageColor),
+      roughness: 0.62,
+      metalness: 0.12,
+      emissive: garbageColor.clone().multiplyScalar(0.08),
+    });
+    this.garbageMesh = new THREE.InstancedMesh(this.blockGeometry, this.garbageMaterial, capacity);
+    this.garbageMesh.count = 0;
+    this.garbageMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    this.garbageMesh.frustumCulled = false;
+    this.root.add(this.garbageMesh);
   }
 
   private buildGhost(): void {
@@ -720,6 +770,9 @@ export class BoardView {
       matrices.set(type, []);
       colors.set(type, []);
     }
+    const garbageMatrices: THREE.Matrix4[] = [];
+    const garbageColors: THREE.Color[] = [];
+    const garbageBase = new THREE.Color(GARBAGE_COLOR);
 
     const matrix = new THREE.Matrix4();
     const white = new THREE.Color('#ffffff');
@@ -728,6 +781,11 @@ export class BoardView {
         const cell = board.cell(row, col);
         if (!cell || cell.type === null) continue;
         matrix.makeTranslation(cellToWorldX(col), cellToWorldY(row), 0);
+        if (cell.type === 'garbage') {
+          garbageMatrices.push(matrix.clone());
+          garbageColors.push(cell.flash > 0 ? garbageBase.clone().lerp(white, Math.min(1, cell.flash)) : garbageBase);
+          continue;
+        }
         matrices.get(cell.type)?.push(matrix.clone());
         const color = this.baseColors.get(cell.type) as THREE.Color;
         const instanceColor = cell.flash > 0 ? color.clone().lerp(white, Math.min(1, cell.flash)) : color;
@@ -748,6 +806,16 @@ export class BoardView {
         mesh.instanceMatrix.needsUpdate = true;
         if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
       }
+    }
+
+    this.garbageMesh.count = garbageMatrices.length;
+    for (let i = 0; i < garbageMatrices.length; i += 1) {
+      this.garbageMesh.setMatrixAt(i, garbageMatrices[i]);
+      this.garbageMesh.setColorAt(i, garbageColors[i]);
+    }
+    if (this.garbageMesh.count > 0) {
+      this.garbageMesh.instanceMatrix.needsUpdate = true;
+      if (this.garbageMesh.instanceColor) this.garbageMesh.instanceColor.needsUpdate = true;
     }
   }
 
@@ -1001,6 +1069,14 @@ export class BoardView {
       this.goldStrip.scale.x = 1 + Math.sin(this.goldRowPulse * 5) * 0.015;
     }
 
+    // Garbage attack warning pulse.
+    if (this.garbageWarnOn) {
+      this.goldRowPulse += delta;
+      const warn = 0.35 + Math.sin(this.goldRowPulse * 10) * 0.28;
+      this.warnStrip.visible = true;
+      (this.warnStrip.material as THREE.MeshBasicMaterial).opacity = warn;
+    }
+
     // Particles (sprite-based).
     for (let i = this.particles.length - 1; i >= 0; i -= 1) {
       const particle = this.particles[i];
@@ -1085,7 +1161,7 @@ export class BoardView {
   /** Fit a perspective camera so the board + margins are fully visible. */
   fitCamera(camera: THREE.PerspectiveCamera, aspect: number): void {
     const fov = THREE.MathUtils.degToRad(camera.fov);
-    const margin = 3.6;
+    const margin = this.bossMode ? 8.2 : 3.6;
     const halfH = BOARD_H / 2 + margin;
     const halfW = BOARD_W / 2 + margin + FRAME_T * 2;
     const distance = Math.max(halfH / Math.tan(fov / 2), halfW / (Math.tan(fov / 2) * aspect));
@@ -1111,6 +1187,11 @@ export class BoardView {
       mesh.geometry.dispose();
       if (Array.isArray(mesh.material)) mesh.material.forEach((m) => m.dispose());
       else mesh.material.dispose();
+    }
+    if (this.garbageMesh) {
+      this.garbageMesh.geometry.dispose();
+      this.garbageMaterial?.map?.dispose();
+      this.garbageMaterial?.dispose();
     }
     this.root.traverse((object) => {
       const mesh = object as THREE.Mesh;

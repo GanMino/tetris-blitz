@@ -13,6 +13,10 @@ interface ThreeGameDiagnostics {
   goldRow: number;
   occupied: number;
   stackTop: number;
+  stage: number;
+  bossHp: number | null;
+  bossMaxHp: number | null;
+  upgradeActive: boolean;
   active: { type: string; x: number; y: number; rotation: number } | null;
   powerup: string | null;
   best: number;

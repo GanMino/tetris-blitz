@@ -209,6 +209,59 @@ export class AudioSystem {
     } else this.playBuffer('gameover', 1);
   }
 
+  // --------------------------------------------------------- boss / upgrades
+
+  bossRoar(): void {
+    this.tone('sawtooth', 110, 42, 0, 0.85, 0.2);
+    this.tone('square', 55, 30, 0.1, 0.7, 0.16);
+    this.noise(0, 0.5, 0.12, 500);
+  }
+
+  bossHit(): void {
+    this.tone('square', 220, 120, 0, 0.09, 0.12);
+    this.noise(0, 0.06, 0.08, 1800);
+  }
+
+  bossDeath(): void {
+    this.arpeggio([392, 311, 262, 196], 0.12, 'square', 0.12);
+    this.noise(0, 0.7, 0.2, 900);
+    this.tone('sawtooth', 120, 30, 0.2, 0.9, 0.14);
+  }
+
+  attackWarn(): void {
+    for (let i = 0; i < 3; i += 1) {
+      this.tone('square', i % 2 === 0 ? 880 : 660, i % 2 === 0 ? 880 : 660, i * 0.22, 0.14, 0.1);
+    }
+  }
+
+  upgrade(): void {
+    this.arpeggio([523, 659, 784, 1047, 1319], 0.06, 'triangle', 0.1);
+  }
+
+  victory(): void {
+    this.arpeggio([523, 659, 784, 1047, 784, 1047, 1319, 1568], 0.12, 'square', 0.1);
+    this.tone('triangle', 262, 262, 0.9, 0.7, 0.1);
+  }
+
+  private noise(startOffset: number, duration: number, peak: number, lowpassHz: number): void {
+    if (!this.context || !this.master) return;
+    const now = this.context.currentTime + startOffset;
+    const length = Math.max(1, Math.floor(this.context.sampleRate * duration));
+    const buffer = this.context.createBuffer(1, length, this.context.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < length; i += 1) data[i] = Math.random() * 2 - 1;
+    const source = this.context.createBufferSource();
+    source.buffer = buffer;
+    const filter = this.context.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = lowpassHz;
+    const gain = this.context.createGain();
+    gain.gain.setValueAtTime(peak, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+    source.connect(filter).connect(gain).connect(this.master);
+    source.start(now);
+  }
+
   // ------------------------------------------------------------------ music
 
   private setupBgm(): void {

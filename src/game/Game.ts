@@ -9,6 +9,7 @@ import { createSeededRandom } from '../utils/random';
 import { Board, type PowerUpPick } from './Board';
 import {
   BOARD_HEIGHT,
+  BOARD_TOP_Y,
   BOARD_WIDTH,
   POWERUPS,
   TETROMINO_COLORS,
@@ -18,6 +19,9 @@ import {
 import { BagRandomizer, pieceCells, ROTATIONS, type ActivePiece, type TetrominoType } from './Pieces';
 import { rollPowerUp } from './PowerUps';
 import { BoardView } from './BoardView';
+import { BossState, type BossAttack } from './Boss';
+import { BossView } from './BossView';
+import { defaultModifiers, rollUpgradeOffers, type RunModifiers, type UpgradeDef } from './Upgrades';
 
 const BEST_KEY = 'tetris-blitz-best';
 
@@ -62,6 +66,15 @@ export class Game {
   private goldRow = -1;
   private goldTimer: number = TUNING.gold.firstAtSeconds;
 
+  // Boss battle + roguelite upgrades.
+  private stage = 1;
+  private boss: BossState | null = null;
+  private readonly bossView: BossView;
+  private modifiers: RunModifiers = defaultModifiers();
+  private readonly takenUpgrades = new Set<string>();
+  private upgradeOffers: UpgradeDef[] | null = null;
+  private furyUntil = -1;
+
   private pausedForScreenshot = false;
   private reducedMotion = false;
 
@@ -88,9 +101,11 @@ export class Game {
       onPauseToggle: () => this.togglePause(),
       onMute: () => this.toggleMute(),
       onTriggerBank: (index) => this.triggerBank(index),
+      onChooseUpgrade: (index) => this.chooseUpgrade(index),
     });
 
     this.boardView = new BoardView(this.scene);
+    this.bossView = new BossView(this.scene);
 
     this.debug = new DebugTools(() => {
       this.renderer.toneMappingExposure = TUNING.render.exposure;
@@ -118,6 +133,7 @@ export class Game {
     this.audio.dispose();
     this.debug.dispose();
     this.boardView.dispose();
+    this.bossView.dispose();
     window.removeEventListener('resize', this.onResize);
     this.renderer.dispose();
     window.__THREE_GAME_DIAGNOSTICS__ = undefined;
@@ -134,6 +150,7 @@ export class Game {
     }
 
     this.boardView.update(delta, this.reducedMotion);
+    this.bossView.update(delta, this.reducedMotion);
 
     if (resizeRenderer(this.renderer, this.camera, TUNING.render.maxDpr)) {
       this.boardView.fitCamera(this.camera, this.camera.aspect);
@@ -141,6 +158,13 @@ export class Game {
 
     if (this.phase !== 'playing') {
       // Still poll input so pause/menu/gameover shortcuts work in every phase.
+      this.processIntents(delta);
+      this.publishDiagnostics();
+      return;
+    }
+
+    // Upgrade choice pauses the simulation but keeps input + visuals alive.
+    if (this.upgradeOffers) {
       this.processIntents(delta);
       this.publishDiagnostics();
       return;
@@ -158,6 +182,7 @@ export class Game {
     this.updateLevel();
     this.updateCountdownTick();
     this.updateGoldRow(delta);
+    this.updateBoss(delta);
     this.stepGravity(delta);
     this.processIntents(delta);
     if (this.phase !== 'playing') {
@@ -184,7 +209,10 @@ export class Game {
     if (!this.active) return;
     this.gravityTimer += delta;
     const slowActive = this.elapsed < this.slowUntil;
-    const factor = slowActive ? 1 / TUNING.gravity.slowMultiplier : 1;
+    const furyActive = this.elapsed < this.furyUntil;
+    const factor =
+      (slowActive ? 1 / TUNING.gravity.slowMultiplier : 1) *
+      (furyActive ? TUNING.boss.furyGravityMult : 1);
     const interval = this.gravityInterval() * factor;
     while (this.gravityTimer >= interval) {
       this.gravityTimer -= interval;
@@ -230,13 +258,13 @@ export class Game {
           if (playing) this.hardDrop();
           break;
         case 'trigger-0':
-          if (playing) this.triggerBank(0);
+          if (playing) this.triggerSlot(0);
           break;
         case 'trigger-1':
-          if (playing) this.triggerBank(1);
+          if (playing) this.triggerSlot(1);
           break;
         case 'trigger-2':
-          if (playing) this.triggerBank(2);
+          if (playing) this.triggerSlot(2);
           break;
         case 'pause':
           this.togglePause();
@@ -327,14 +355,7 @@ export class Game {
       const kind = badge.kind;
       this.boardView.spawnBadgeGem(badgeWorldCell[0], badgeWorldCell[1], kind);
       this.boardView.burst(badgeWorldCell[0], badgeWorldCell[1], POWERUPS[kind].color, 16, 2.2, 'spark');
-      if (this.bank.length >= TUNING.bank.size) {
-        this.applyPowerUp(kind);
-      } else {
-        this.bank.push(kind);
-        this.audio.powerUp();
-        this.hud.banner(`获得道具：${POWERUPS[kind].name}（存入银行）`, 'powerup');
-        this.hud.setBank(this.bank);
-      }
+      this.grantPowerUp(kind);
     }
 
     // Scored line clears.
@@ -345,6 +366,7 @@ export class Game {
       this.timeLeft += TUNING.time.secondsPerLine * n;
       const gained = this.lineScore(n);
       this.score += gained;
+      this.dealBossDamage(this.bossDamage(n));
       this.boardView.flashRows(result.clearedRows);
       for (const row of result.clearedRows) {
         const colors = rowColors.get(row) ?? [];
@@ -373,9 +395,10 @@ export class Game {
       const waveColors = colors[wave] ?? [];
       this.combo += 1;
       this.lines += rows.length;
-      this.timeLeft += TUNING.cascade.secondsPerRow * rows.length;
+      this.timeLeft += (TUNING.cascade.secondsPerRow + this.modifiers.cascadeSecondsBonus) * rows.length;
       const gained = this.lineScore(rows.length);
       this.score += gained;
+      this.dealBossDamage(this.bossDamage(rows.length));
       this.boardView.flashRows(rows);
       for (let i = 0; i < rows.length; i += 1) {
         const row = rows[i];
@@ -395,7 +418,11 @@ export class Game {
     const comboIndex = Math.min(this.combo - 1, TUNING.scoring.comboSteps.length - 1);
     const doubleActive = this.elapsed < this.doubleUntil;
     return Math.round(
-      TUNING.scoring.lineScores[n] * this.level * TUNING.scoring.comboSteps[comboIndex] * (doubleActive ? 2 : 1),
+      TUNING.scoring.lineScores[n] *
+        this.level *
+        TUNING.scoring.comboSteps[comboIndex] *
+        (doubleActive ? 2 : 1) *
+        this.modifiers.scoreMultiplier,
     );
   }
 
@@ -420,6 +447,7 @@ export class Game {
         }
         this.boardView.flashRows([...new Set(result.blasted.map(([, row]) => row))], def.color);
         this.boardView.addShake(0.3);
+        this.dealBossDamage(TUNING.boss.bombDamage + this.modifiers.bombDamageBonus);
         this.scoreCascades(result.cascades, result.cascadeColors);
         this.hud.banner(`${def.emoji} 3×3 爆破！`, 'powerup');
         break;
@@ -433,6 +461,15 @@ export class Game {
         this.hud.banner(`${def.emoji} +${TUNING.powerups.bonusPoints}`, 'powerup');
         break;
     }
+  }
+
+  /** Slot keys 1/2/3: choose an upgrade offer when one is open, else the bank. */
+  private triggerSlot(index: number): void {
+    if (this.upgradeOffers) {
+      this.chooseUpgrade(index);
+      return;
+    }
+    this.triggerBank(index);
   }
 
   private triggerBank(index: number): void {
@@ -463,13 +500,157 @@ export class Game {
 
   private resolveGoldRow(rewarded: boolean): void {
     if (rewarded) {
-      this.timeLeft += TUNING.gold.bonusSeconds;
-      this.score += TUNING.gold.bonusPoints * this.level;
+      const timeBonus = TUNING.gold.bonusSeconds * this.modifiers.goldMultiplier;
+      const scoreBonus = TUNING.gold.bonusPoints * this.level * this.modifiers.goldMultiplier;
+      this.timeLeft += timeBonus;
+      this.score += Math.round(scoreBonus * this.modifiers.scoreMultiplier);
       this.boardView.goldBurst(this.goldRow);
-      this.hud.banner(`黄金行！ +${TUNING.gold.bonusSeconds}s +${TUNING.gold.bonusPoints * this.level}分`, 'gold');
+      this.hud.banner(`黄金行！ +${timeBonus}s +${scoreBonus}分`, 'gold');
     }
     this.goldRow = -1;
     this.goldTimer = TUNING.gold.nextAfterSeconds;
+  }
+
+  // ---------------------------------------------------------------- boss
+
+  private updateBoss(delta: number): void {
+    // Boss window: the clock reaching the threshold summons the boss.
+    if (!this.boss && this.stage <= TUNING.stage.count && this.timeLeft <= TUNING.boss.spawnTimeLeft) {
+      this.spawnBoss();
+      return;
+    }
+    if (!this.boss) return;
+    for (const event of this.boss.tick(delta, this.rng)) {
+      if (event.type === 'warn') this.telegraphAttack(event.attack as BossAttack);
+      else if (event.type === 'attack') this.executeAttack(event.attack as BossAttack);
+      else if (event.type === 'phase2') {
+        this.hud.banner('BOSS 狂暴了！', 'warn');
+        this.audio.attackWarn();
+      }
+    }
+  }
+
+  private spawnBoss(): void {
+    this.boss = new BossState(this.stage);
+    const y = BOARD_TOP_Y + 6.2;
+    this.bossView.show(this.stage, y, -7);
+    this.boardView.setBossMode(true);
+    this.boardView.fitCamera(this.camera, this.camera.aspect);
+    this.hud.setBoss(this.boss.name, this.boss.hp, this.boss.maxHp);
+    this.hud.banner(`⚠ ${this.boss.name} 出现！消行攻击！`, 'warn');
+    this.audio.bossRoar();
+    this.boardView.addShake(0.24);
+  }
+
+  private telegraphAttack(attack: BossAttack): void {
+    this.bossView.setCharging(true);
+    this.audio.attackWarn();
+    const names: Record<BossAttack, string> = { garbage: '垃圾行来袭！', shuffle: '洗牌攻击！', fury: '狂怒加速！' };
+    this.hud.banner(`⚠ ${names[attack]}`, 'warn');
+    if (attack === 'garbage') this.boardView.setGarbageWarn(true);
+  }
+
+  private executeAttack(attack: BossAttack): void {
+    this.bossView.setCharging(false);
+    this.boardView.setGarbageWarn(false);
+    switch (attack) {
+      case 'garbage': {
+        const count = Math.max(1, this.boss!.garbageRows() - this.modifiers.garbageReduction);
+        const { topOut } = this.board.addGarbageRows(count, this.rng);
+        this.boardView.addShake(0.34);
+        for (let row = BOARD_HEIGHT - count; row < BOARD_HEIGHT; row += 1) {
+          for (let col = 0; col < BOARD_WIDTH; col += 1) {
+            if (this.board.cell(row, col)?.type === 'garbage') {
+              this.boardView.burst(col, row, '#8b93a7', 2, 1.4, 'smoke');
+            }
+          }
+        }
+        if (topOut) {
+          this.syncScene();
+          this.endGame('stack');
+          return;
+        }
+        break;
+      }
+      case 'shuffle': {
+        this.board.shuffleBottomRows(TUNING.boss.shuffleRows, this.rng);
+        this.boardView.addShake(0.2);
+        this.boardView.flashRows([BOARD_HEIGHT - 3, BOARD_HEIGHT - 2, BOARD_HEIGHT - 1], '#c44df2');
+        break;
+      }
+      case 'fury':
+        this.furyUntil = this.elapsed + TUNING.boss.furyDuration;
+        break;
+    }
+    this.syncScene();
+  }
+
+  private bossDamage(lines: number): number {
+    const base = TUNING.boss.lineDamage[Math.min(lines, 4)];
+    return Math.round(base * (1 + TUNING.boss.damageComboStep * Math.max(0, this.combo - 1)));
+  }
+
+  private dealBossDamage(amount: number): void {
+    if (!this.boss || amount <= 0) return;
+    this.boss.damage(amount);
+    this.bossView.hit();
+    this.audio.bossHit();
+    this.hud.setBoss(this.boss.name, this.boss.hp, this.boss.maxHp);
+    if (this.boss.hp <= 0) this.killBoss();
+  }
+
+  private killBoss(): void {
+    if (!this.boss) return;
+    const defeatedStage = this.stage;
+    this.bossView.explode();
+    this.audio.bossDeath();
+    this.boardView.addShake(0.4);
+    this.boardView.setBossMode(false);
+    this.boardView.fitCamera(this.camera, this.camera.aspect);
+    this.hud.setBoss(null);
+    this.boss = null;
+
+    if (defeatedStage >= TUNING.stage.count) {
+      this.endGame('victory');
+      return;
+    }
+    // Stage clear rewards.
+    this.stage += 1;
+    const timeBonus = TUNING.boss.stageBonusSeconds + this.modifiers.timePerStageBonus;
+    const scoreBonus = Math.round(TUNING.boss.stageBonusScore * defeatedStage * this.modifiers.scoreMultiplier);
+    this.timeLeft += timeBonus;
+    this.score += scoreBonus;
+    this.hud.banner(`BOSS 击破！ +${timeBonus}s +${scoreBonus}分`, 'gold');
+    // Stage-start gifts (稳健开局).
+    for (let i = 0; i < this.modifiers.startSlowGifts; i += 1) {
+      this.grantPowerUp('slow');
+    }
+    // Upgrade choice.
+    this.upgradeOffers = rollUpgradeOffers(this.rng, this.takenUpgrades);
+    this.hud.showUpgrade(this.upgradeOffers);
+    this.hud.update(this.metrics());
+  }
+
+  private chooseUpgrade(index: number): void {
+    const def = this.upgradeOffers?.[index];
+    if (!def) return;
+    def.apply(this.modifiers);
+    this.takenUpgrades.add(def.id);
+    this.upgradeOffers = null;
+    this.hud.hideUpgrade();
+    this.hud.update(this.metrics());
+    this.audio.upgrade();
+  }
+
+  /** Grant a power-up into the bank (auto-fires when full) — no FX origin cell. */
+  private grantPowerUp(kind: PowerUpKind): void {
+    if (this.bank.length >= TUNING.bank.size + this.modifiers.bankSizeBonus) {
+      this.applyPowerUp(kind);
+    } else {
+      this.bank.push(kind);
+      this.hud.setBank(this.bank);
+      this.hud.banner(`获得道具：${POWERUPS[kind].name}（存入银行）`, 'powerup');
+    }
   }
 
   private spawnPiece(): void {
@@ -558,6 +739,16 @@ export class Game {
     this.bank = [];
     this.goldRow = -1;
     this.goldTimer = TUNING.gold.firstAtSeconds;
+    this.stage = 1;
+    this.boss = null;
+    this.modifiers = defaultModifiers();
+    this.takenUpgrades.clear();
+    this.upgradeOffers = null;
+    this.furyUntil = -1;
+    this.bossView.hide();
+    this.boardView.setBossMode(false);
+    this.hud.setBoss(null);
+    this.hud.hideUpgrade();
     this.hud.setBank(this.bank);
     this.active = null;
     this.activePower = null;
@@ -573,17 +764,24 @@ export class Game {
     this.hud.update(this.metrics());
   }
 
-  private endGame(reason: 'time' | 'stack'): void {
+  private endGame(reason: 'time' | 'stack' | 'victory'): void {
     this.phase = 'gameover';
     this.active = null;
     this.activePower = null;
+    this.boss = null;
+    this.upgradeOffers = null;
+    this.bossView.hide();
+    this.boardView.setBossMode(false);
+    this.hud.setBoss(null);
+    this.hud.hideUpgrade();
+    if (reason === 'victory') this.audio.victory();
+    else this.audio.gameOver();
     if (this.score > this.best) {
       this.best = this.score;
       this.newBest = true;
       localStorage.setItem(BEST_KEY, String(this.best));
     }
     this.audio.stopMusic();
-    this.audio.gameOver();
     this.clearDangerSignals();
     this.goldRow = -1;
     this.hud.setPhase('gameover', reason);
@@ -622,6 +820,12 @@ export class Game {
     this.clearDangerSignals();
     this.bank = [];
     this.goldRow = -1;
+    this.boss = null;
+    this.upgradeOffers = null;
+    this.bossView.hide();
+    this.boardView.setBossMode(false);
+    this.hud.setBoss(null);
+    this.hud.hideUpgrade();
     this.hud.setBank(this.bank);
     this.board.reset();
     this.boardView.syncBoard(this.board);
@@ -645,6 +849,7 @@ export class Game {
       level: this.level,
       lines: this.lines,
       combo: this.combo,
+      stage: this.stage,
       nextType: this.nextPiece?.type ?? 'I',
       nextRotation: this.nextPiece?.rotation ?? 0,
       effects: {
@@ -673,7 +878,12 @@ export class Game {
           'gameover-stack',
           'paused',
           'gold',
+          'boss',
+          'upgrade',
+          'victory',
           'bot-well',
+          'boss-low',
+          'boss-final',
           'time-low',
         ]);
         if (!known.has(name)) throw new Error(`Unknown test state: ${name}`);
@@ -749,6 +959,73 @@ export class Game {
             this.buildWellPreset();
             this.active = { type: 'I', rotationIndex: 0, x: 3, y: 1 };
             this.activePower = null;
+            break;
+          case 'boss':
+            this.startGame();
+            this.elapsed = 50;
+            this.timeLeft = 45;
+            this.score = 2140;
+            this.lines = 12;
+            this.level = 2;
+            this.buildPresetStack(10);
+            this.forceActivePiece('Z', 3, 6, 0);
+            this.spawnBoss();
+            this.boss!.hp = Math.round(this.boss!.maxHp * 0.6);
+            this.hud.setBoss(this.boss!.name, this.boss!.hp, this.boss!.maxHp);
+            break;
+          case 'upgrade':
+            this.startGame();
+            this.elapsed = 130;
+            this.timeLeft = 95;
+            this.score = 4120;
+            this.lines = 22;
+            this.level = 3;
+            this.stage = 2;
+            this.buildPresetStack(8);
+            this.upgradeOffers = rollUpgradeOffers(this.rng, new Set(['frenzy']));
+            this.hud.showUpgrade(this.upgradeOffers);
+            break;
+          case 'victory':
+            this.startGame();
+            this.elapsed = 400;
+            this.timeLeft = 30;
+            this.score = 12850;
+            this.lines = 64;
+            this.level = 4;
+            this.stage = 3;
+            this.buildPresetStack(8);
+            this.endGame('victory');
+            break;
+          case 'boss-low':
+            this.startGame();
+            this.elapsed = 80;
+            this.timeLeft = 45;
+            this.score = 3000;
+            this.lines = 16;
+            this.level = 2;
+            this.buildWellPreset();
+            this.active = { type: 'I', rotationIndex: 0, x: 3, y: 1 };
+            this.activePower = null;
+            this.spawnBoss();
+            this.boss!.hp = 20;
+            this.boss!.attackTimer = 999;
+            this.hud.setBoss(this.boss!.name, this.boss!.hp, this.boss!.maxHp);
+            break;
+          case 'boss-final':
+            this.startGame();
+            this.elapsed = 300;
+            this.timeLeft = 45;
+            this.score = 9000;
+            this.lines = 48;
+            this.level = 4;
+            this.stage = 3;
+            this.buildWellPreset();
+            this.active = { type: 'I', rotationIndex: 0, x: 3, y: 1 };
+            this.activePower = null;
+            this.spawnBoss();
+            this.boss!.hp = 20;
+            this.boss!.attackTimer = 999;
+            this.hud.setBoss(this.boss!.name, this.boss!.hp, this.boss!.maxHp);
             break;
           case 'time-low':
             this.startGame();
@@ -830,6 +1107,10 @@ export class Game {
       bank: [...this.bank],
       goldRow: this.goldRow,
       occupied: this.board.occupiedCount(),
+      stage: this.stage,
+      bossHp: this.boss?.hp ?? null,
+      bossMaxHp: this.boss?.maxHp ?? null,
+      upgradeActive: this.upgradeOffers !== null,
       stackTop: this.board.stackTopVisible(),
       active: this.active
         ? { type: this.active.type, x: this.active.x, y: this.active.y, rotation: this.active.rotationIndex }

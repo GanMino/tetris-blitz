@@ -11,6 +11,7 @@ export interface HudMetrics {
   level: number;
   lines: number;
   combo: number;
+  stage: number;
   nextType: TetrominoType;
   nextRotation: number;
   effects: Partial<Record<'slow' | 'double', number>>; // remaining seconds
@@ -25,6 +26,7 @@ export interface HudCallbacks {
   onPauseToggle: () => void;
   onMute: () => void;
   onTriggerBank: (index: number) => void;
+  onChooseUpgrade: (index: number) => void;
 }
 
 /**
@@ -40,7 +42,13 @@ export class Hud {
   private readonly menuBestValue = this.el('#menu-best-value');
   private readonly levelValue = this.el('#level-value');
   private readonly linesValue = this.el('#lines-value');
+  private readonly stageValue = this.el('#stage-value');
   private readonly comboBox = this.el('#combo-box');
+  private readonly bossBar = this.el('#boss-bar');
+  private readonly bossName = this.el('#boss-name');
+  private readonly bossFill = this.el('#boss-hp-fill');
+  private readonly upgradeOverlay = this.el('#upgrade-overlay');
+  private readonly upgradeCards = this.el('#upgrade-cards');
   private readonly nextPreview = this.el('#next-preview');
   private readonly effectsBox = this.el('#effects-box');
   private readonly bannerBox = this.el('#banner');
@@ -113,13 +121,15 @@ export class Hud {
     );
   }
 
-  setPhase(phase: GamePhase, reason?: 'time' | 'stack'): void {
+  setPhase(phase: GamePhase, reason?: 'time' | 'stack' | 'victory'): void {
     this.menuOverlay.classList.toggle('hidden', phase !== 'menu');
     this.pauseOverlay.classList.toggle('hidden', phase !== 'paused');
     this.gameoverOverlay.classList.toggle('hidden', phase !== 'gameover');
     document.body.classList.toggle('phase-playing', phase === 'playing');
     if (phase === 'gameover') {
-      this.gameoverReason.textContent = reason === 'time' ? '时间到！' : '方块堆满！';
+      this.gameoverReason.textContent =
+        reason === 'time' ? '时间到！' : reason === 'stack' ? '方块堆满！' : '胜利！三连 BOSS 击破！';
+      this.gameoverOverlay.classList.toggle('victory', reason === 'victory');
     }
   }
 
@@ -133,6 +143,7 @@ export class Hud {
     this.menuBestValue.textContent = String(metrics.best);
     this.levelValue.textContent = String(metrics.level);
     this.linesValue.textContent = String(metrics.lines);
+    this.stageValue.textContent = `${metrics.stage}/3`;
     this.comboBox.classList.toggle('hidden', metrics.combo < 2);
     this.comboBox.textContent = `COMBO x${metrics.combo}`;
     this.newBestTag.classList.toggle('hidden', !metrics.newBest);
@@ -147,6 +158,37 @@ export class Hud {
   setTimerDanger(danger: boolean, critical: boolean): void {
     this.timerMetric.classList.toggle('danger', danger);
     this.timerMetric.classList.toggle('critical', critical);
+  }
+
+  /** Boss HP bar; pass null to hide. */
+  setBoss(name: string | null, hp = 0, maxHp = 1): void {
+    if (!name) {
+      this.bossBar.classList.add('hidden');
+      return;
+    }
+    this.bossBar.classList.remove('hidden');
+    this.bossName.textContent = name;
+    const ratio = Math.max(0, Math.min(1, hp / maxHp));
+    this.bossFill.style.width = `${(ratio * 100).toFixed(1)}%`;
+    this.bossBar.classList.toggle('boss-phase2', ratio < 0.5);
+  }
+
+  /** Roguelite upgrade choice overlay (3 cards, keys 1/2/3 or tap). */
+  showUpgrade(offers: Array<{ emoji: string; name: string; desc: string }>): void {
+    this.upgradeCards.innerHTML = '';
+    offers.forEach((offer, index) => {
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'upgrade-card';
+      card.innerHTML = `<span class="upgrade-emoji">${offer.emoji}</span><strong>${offer.name}</strong><span class="upgrade-desc">${offer.desc}</span><span class="upgrade-key">${index + 1}</span>`;
+      card.addEventListener('click', () => this.callbacks.onChooseUpgrade(index));
+      this.upgradeCards.appendChild(card);
+    });
+    this.upgradeOverlay.classList.remove('hidden');
+  }
+
+  hideUpgrade(): void {
+    this.upgradeOverlay.classList.add('hidden');
   }
 
   private renderNext(type: TetrominoType, rotation: number): void {

@@ -317,6 +317,121 @@ body.time-critical #vignette {
   animation: combo-pop 0.25s ease-out;
 }
 
+/* --------------------------------------------------------------- boss bar */
+
+#boss-bar {
+  position: absolute;
+  top: calc(max(76px, 12vh) + env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: min(340px, 60vw);
+  pointer-events: none;
+  z-index: 8;
+}
+
+#boss-name {
+  font-family: var(--arcade-font);
+  font-size: 0.62rem;
+  color: #ff8a9d;
+  white-space: nowrap;
+  text-shadow: 0 0 8px rgba(255, 74, 90, 0.7);
+}
+
+#boss-hp-track {
+  flex: 1;
+  height: 12px;
+  border: 2px solid rgba(255, 120, 140, 0.7);
+  border-radius: 8px;
+  background: rgba(30, 6, 14, 0.8);
+  overflow: hidden;
+}
+
+#boss-hp-fill {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #ff3b5c, #ff8a5c);
+  box-shadow: 0 0 12px rgba(255, 70, 90, 0.8);
+  transition: width 0.25s ease;
+}
+
+#boss-bar.boss-phase2 #boss-hp-fill {
+  background: linear-gradient(90deg, #c44df2, #ff3b5c);
+  animation: boss-pulse 0.8s ease-in-out infinite;
+}
+
+@keyframes boss-pulse {
+  50% {
+    filter: brightness(1.6);
+  }
+}
+
+/* ------------------------------------------------------------ upgrade UI */
+
+#upgrade-overlay {
+  gap: 10px;
+}
+
+#upgrade-cards {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.upgrade-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: clamp(150px, 26vw, 200px);
+  padding: 20px 14px;
+  border: 2px solid var(--panel-border);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(22, 26, 62, 0.92), rgba(10, 12, 30, 0.92));
+  color: var(--ink);
+  cursor: pointer;
+  transition: transform 0.1s ease, border-color 0.1s ease, box-shadow 0.1s ease;
+}
+
+.upgrade-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--neon-gold);
+  box-shadow: 0 8px 26px rgba(255, 210, 62, 0.25);
+}
+
+.upgrade-card:active {
+  transform: translateY(0);
+}
+
+.upgrade-emoji {
+  font-size: 2.4rem;
+  filter: drop-shadow(0 0 10px rgba(255, 210, 62, 0.5));
+}
+
+.upgrade-card strong {
+  font-size: 1rem;
+  letter-spacing: 0.06em;
+}
+
+.upgrade-desc {
+  color: var(--muted);
+  font-size: 0.74rem;
+  line-height: 1.5;
+}
+
+.upgrade-key {
+  position: absolute;
+  top: 8px;
+  left: 10px;
+  font-family: var(--arcade-font);
+  font-size: 0.55rem;
+  color: var(--muted);
+}
+
 @keyframes combo-pop {
   0% {
     transform: translateX(-50%) scale(1.5);
